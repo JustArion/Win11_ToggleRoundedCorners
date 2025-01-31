@@ -1,0 +1,87 @@
+﻿<Window x:Class="Dawn.Apps.ToggleRoundedCorners.MainView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:window="clr-namespace:Dawn.Apps.ToggleRoundedCorners.Tools.Window"
+        xmlns:local="clr-namespace:Dawn.Apps.ToggleRoundedCorners"
+        xmlns:ct="clr-namespace:Dawn.Apps.ToggleRoundedCorners.Controls"
+        mc:Ignorable="d"
+        xmlns:vm="clr-namespace:Dawn.Apps.ToggleRoundedCorners.ViewModels"
+        ResizeMode="NoResize"
+        Topmost="False"
+        WindowStartupLocation="CenterScreen"
+        Title="Windows 11 Rounded Corners Menu"
+        Style="{StaticResource WindowStyle}"
+        Height="650" Width="750">
+    
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+    
+    <!-- Window Behaviors  -->
+    <i:Interaction.Behaviors>
+        <window:BlurBehavior />
+    </i:Interaction.Behaviors>
+
+    <Border Style="{StaticResource BorderlessWindow}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+            
+            <ct:WindowBar ShowTitle="True" CanMaximize="False"/>
+            
+            <!-- Main Layout -->
+            <Border Grid.Row="1" Padding="5" Background="{DynamicResource WindowBackgroundSecondaryColor}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Log Output -->
+                    <Grid Background="{DynamicResource WindowBackgroundColor}">
+                        <ListBox Name="LoggerListBox"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 BorderBrush="{DynamicResource FoldingSelectBackgroundColor}"
+                                 ItemContainerStyle="{StaticResource TransparentItemContainer}" Background="Transparent" 
+                                 Foreground="{DynamicResource WindowForegroundColor}" Margin="0,0,5,0">
+                        </ListBox>
+                    </Grid>
+                    
+                    <!-- Option Buttons -->
+                    <Grid Grid.Column="1" Background="{DynamicResource WindowBackgroundColor}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition />
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <StackPanel>
+                                <ToggleButton Style="{StaticResource ToggleOptionButton}" IsChecked="{Binding RunsOnStartup}"
+                                              Content="Run on Startup" Command="{Binding RunOnStartupCommand}" />
+                                <Button Style="{StaticResource OptionButton}"
+                                        Content="Toggle Rounded Corners" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding ToggleRoundedCornersCommand}"/>
+                                <Button Style="{StaticResource OptionButton}"
+                                        Content="Use Rounded Corners" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding UseRoundedCornersCommand}"/>
+                                <Button Style="{StaticResource OptionButton}"
+                                        Content="Use Sharp Corners" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding UseSharpCornersCommand}"/>
+                            </StackPanel>
+                            
+                            <StackPanel Grid.Row="1">
+                                <Button Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Content="Restart DWM" Command="{Binding RestartDWMCommand}"/>
+                                <Button Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Name="ClearCacheButton" Content="Clear Cache" Command="{Binding ClearCacheCommand}"/>
+                                <Button Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Margin="0" Content="Reset to Default" Command="{Binding UseRoundedCornersCommand}"/>
+                            </StackPanel>
+                            
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>            
+        </Grid>
+    </Border>
+</Window>
