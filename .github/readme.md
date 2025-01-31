@@ -1,3 +1,5 @@
+<img src="\Images\Show-Sharp.png" width="450" height="350"/>
+
 > [!NOTE]
 > If you run the normal version and you don't have the required prerequisites installed it will prompt you if you want to install them, opening a link to Microsoft to download.
 > __There are 2 prompts of this, 1 per runtime needed__
