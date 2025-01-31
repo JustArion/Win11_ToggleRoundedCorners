@@ -78,3 +78,4 @@ A comprehensive list of permissions the application needs / could need can be fo
 ---
 ### Thank Yous
 - Thanks to [Rckov](https://github.com/Rckov) for their window theme from [Xslt-Editor](https://github.com/Rckov/Xslt-Editor)
+- Thanks to [oberrich](https://github.com/oberrich/) for the initial idea and starting direction from [win11-toggle-rounded-corners](https://github.com/oberrich/win11-toggle-rounded-corners/)
