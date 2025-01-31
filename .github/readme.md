@@ -1,4 +1,4 @@
-<img src="\Images\Show-Sharp.png" width="450" height="350"/>
+<img src=".\Images\Show-Sharp.png" width="450" height="350"/>
 
 > [!NOTE]
 > If you run the normal version and you don't have the required prerequisites installed it will prompt you if you want to install them, opening a link to Microsoft to download.
@@ -37,7 +37,9 @@
 
 **Launch Args Example**
 
-`& '.\ToggleRoundedCorners.exe' --extended-logging --headless --sharp-corners --seq-url=http://localhost:9999`
+```
+& '.\ToggleRoundedCorners.exe' --extended-logging --headless --sharp-corners --seq-url=http://localhost:9999
+```
 
 ## Previews
 
