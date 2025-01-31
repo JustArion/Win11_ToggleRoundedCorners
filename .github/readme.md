@@ -9,6 +9,7 @@
 - [Building from Source](#building-from-source)
 - [Supported Architectures](#supported-architectures)
 - [Permissions](#permissions)
+- [Thank Yous](#thank-yous)
 ---
 
 ## Requirements
@@ -71,3 +72,5 @@ Create an issue to request additional architectures.
 A comprehensive list of permissions the application needs / could need can be found [here](permissions.md)
 
 ---
+### Thank Yous
+- Thanks to [Rckov](https://github.com/Rckov) for his window theme from [Xslt-Editor](https://github.com/Rckov/Xslt-Editor)
