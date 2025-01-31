@@ -77,4 +77,4 @@ A comprehensive list of permissions the application needs / could need can be fo
 
 ---
 ### Thank Yous
-- Thanks to [Rckov](https://github.com/Rckov) for his window theme from [Xslt-Editor](https://github.com/Rckov/Xslt-Editor)
+- Thanks to [Rckov](https://github.com/Rckov) for their window theme from [Xslt-Editor](https://github.com/Rckov/Xslt-Editor)
