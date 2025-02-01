@@ -102,6 +102,8 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
             RunAsAdmin(file, args, td);
             OnStartup(td);
 
+            td.Settings.Priority = ProcessPriorityClass.High;
+
             CloseAfter(TimeSpan.FromMinutes(5), td);
             FixSchedulerBugIfNecessary(td);
 
