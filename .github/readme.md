@@ -23,8 +23,13 @@
 ### Running Portable:
 - None (Though has considerably bigger file size)
 
+## Tested on
+- 22H2
+- 23H2
+- 24H2
+
 ---
-### Custom Launch Args
+## Custom Launch Args
 
 | Argument           |      Default Value       | Description                                                                                |
 |:-------------------|:------------------------:|:-------------------------------------------------------------------------------------------|
