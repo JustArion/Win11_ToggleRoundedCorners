@@ -62,20 +62,16 @@
                             </Grid.RowDefinitions>
                             
                             <StackPanel>
-                                <ToggleButton Style="{StaticResource ToggleOptionButton}" IsChecked="{Binding RunsOnStartup}"
-                                              Content="Run on Startup" Command="{Binding RunOnStartupCommand}" />
-                                <Button Style="{StaticResource OptionButton}"
-                                        Content="Toggle Rounded Corners" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding ToggleRoundedCornersCommand}"/>
-                                <Button Style="{StaticResource OptionButton}"
-                                        Content="Use Rounded Corners" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding UseRoundedCornersCommand}"/>
-                                <Button Style="{StaticResource OptionButton}"
-                                        Content="Use Sharp Corners" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding UseSharpCornersCommand}"/>
+                                <ToggleButton Content="Run on Startup" Style="{StaticResource ToggleOptionButton}" IsChecked="{Binding RunsOnStartup}" Command="{Binding RunOnStartupCommand}" />
+                                <Button Content="Toggle Rounded Corners" Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding ToggleRoundedCornersCommand}"/>
+                                <Button Content="Use Rounded Corners" Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding UseRoundedCornersCommand}"/>
+                                <Button Content="Use Sharp Corners" Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding UseSharpCornersCommand}"/>
                             </StackPanel>
                             
                             <StackPanel Grid.Row="1">
-                                <Button Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Content="Restart DWM" Command="{Binding RestartDWMCommand}"/>
-                                <Button Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Name="ClearCacheButton" Content="Clear Cache" Command="{Binding ClearCacheCommand}"/>
-                                <Button Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Margin="0" Content="Reset to Default" Command="{Binding UseRoundedCornersCommand}"/>
+                                <Button Content="Restart DWM" Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Command="{Binding RestartDWMCommand}"/>
+                                <Button Content="Clear Cache" Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Name="ClearCacheButton" Command="{Binding ClearCacheCommand}"/>
+                                <Button Content="Reset to Default" Style="{StaticResource OptionButton}" IsEnabled="{Binding OperationNotInProgress}" Margin="0" Command="{Binding UseRoundedCornersCommand}"/>
                             </StackPanel>
                             
                         </Grid>
