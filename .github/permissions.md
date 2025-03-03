@@ -49,7 +49,7 @@ The technical write-up can be found [here](./technical.md)
             - This does not send telemetry to somewhere online (default)
             - Configurable by the user / command line, Handled by Nuget package [Serilog.Sinks.Seq](https://www.nuget.org/packages/Serilog.Sinks.Seq) & external application if present on PC ([Seq](https://datalust.co/seq))
     - `Download Access`
-        - __Can__ download files from `https://msdl.microsoft.com/download/symbols`
+        - Downloads files from `https://msdl.microsoft.com/download/symbols`
             - Debug symbols are downloaded to the `sym` folder in the `ToggleRoundedCorners.exe` directory
 - `Process`
     - `Read Access`
