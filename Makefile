@@ -1,5 +1,5 @@
 build:
-	dotnet publish .\src\ToggleRoundedCorners\ --configuration Release --output Build
+	dotnet publish --configuration Release --output Build .\src\ToggleRoundedCorners\
 	
 help:
 	@echo "Usage: make <target>"
