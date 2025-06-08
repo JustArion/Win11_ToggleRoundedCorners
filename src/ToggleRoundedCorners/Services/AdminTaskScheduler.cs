@@ -6,6 +6,9 @@ using Interfaces;
 using Microsoft.Win32.TaskScheduler;
 using Tools;
 
+/// <summary>
+/// Provides a service to manage scheduled tasks for startup and running the application with elevated privileges.
+/// </summary>
 internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) : ITaskSchedulerService
 {
     public bool IsEnabled(string key)

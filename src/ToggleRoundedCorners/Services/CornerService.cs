@@ -4,6 +4,9 @@ using global::Serilog;
 using global::Dawn.Libs.ToggleRoundedCorners.Native;
 using Interfaces;
 
+/// <summary>
+/// Service for managing rounded corners in the Windows Desktop Window Manager (DWM).
+/// </summary>
 internal sealed class CornerService(ILogger logger) : ICornerService
 {
     private readonly DWMInteraction _dwmInteraction = new(logger);

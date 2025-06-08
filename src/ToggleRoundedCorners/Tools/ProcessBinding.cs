@@ -3,6 +3,10 @@
 using System.Diagnostics;
 using global::Serilog;
 
+/// <summary>
+/// Represents a binding to a process by its PID.
+/// This class allows monitoring the process and handling its exit.
+/// </summary>
 internal sealed class ProcessBinding
 {
     private readonly ILogger _logger;
