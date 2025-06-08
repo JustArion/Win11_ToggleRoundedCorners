@@ -3,9 +3,9 @@
 using System.Diagnostics.CodeAnalysis;
 using Serilog;
 
-internal sealed class DWMSymbolHandler(ILogger logger) : ProgressAwareObject
+internal sealed class DWMSymbolHandler(ILogger logger) //: ProgressAwareObject
 {
-    protected override void OnProgress(string reason) => logger.Verbose("SymbolHandler: ({Reason})", reason);
+    // protected override void OnProgress(string reason) => logger.Verbose("SymbolHandler: ({Reason})", reason);
 
     [SuppressMessage("ReSharper", "SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault")]
     internal async Task<SuccessResult<SYMBOL_INFO>> GetSymbol(string symbolName, ulong targetBaseAddress)
@@ -20,7 +20,8 @@ internal sealed class DWMSymbolHandler(ILogger logger) : ProgressAwareObject
         if (!ourDbgHelp.Exists)
         {
             var systemDbgHelp = FromSystem("dbghelp.dll");
-            InformProgress("Copying dbghelp.dll to our folder");
+            // InformProgress("Copying dbghelp.dll to our folder");
+            logger.Information("Copying dbghelp.dll from {Source} to {Destination}", systemDbgHelp.FullName, ourDbgHelp.FullName);
             systemDbgHelp.CopyTo(ourDbgHelp.FullName);
         }
         
@@ -36,20 +37,23 @@ internal sealed class DWMSymbolHandler(ILogger logger) : ProgressAwareObject
                 _ => throw new PlatformNotSupportedException()
             };
     
-            InformProgress("Copying symsrv.dll to our folder");
+            // InformProgress("Copying symsrv.dll to our folder");
+            logger.Information("Copying symsrv.dll from {Source} to {Destination}", Path.Combine(AppContext.BaseDirectory, folder, "symsrv.dll"), ourSymSrv.FullName);
             File.Copy(Path.Combine(AppContext.BaseDirectory, folder, "symsrv.dll"), Path.Combine(AppContext.BaseDirectory, "symsrv.dll"));
             
         }
         RemoveUnusedSymSrv();
 
         
-        InformProgress("Initializing Microsoft Symbol Database");
+        // InformProgress("Initializing Microsoft Symbol Database");
+        logger.Information("Initializing Microsoft Symbol Database");
         try
         {
             if (!SymInitialize(proc, searchPath, false))
                 return Failed<SYMBOL_INFO>();
         
-            InformProgress("Loading Symbols from Cache or from Microsoft Servers...");
+            // InformProgress("Loading Symbols from Cache or from Microsoft Servers...");
+            logger.Information("Loading Symbols from Cache or from Microsoft Servers...");
             var dwmBinary = FromSystem("uDWM.dll");
             var baseAddress = 0UL;
             SYMBOL_INFO? symbol = null;
@@ -65,7 +69,8 @@ internal sealed class DWMSymbolHandler(ILogger logger) : ProgressAwareObject
 
                 if (!informedSymbolName)
                 {
-                    InformProgress($"Looking through symbols for {symbolName}");
+                    // InformProgress($"Looking through symbols for {symbolName}");
+                    logger.Information("Looking through symbols for {SymbolName}", symbolName);
                     informedSymbolName = true;
                 }
                     
@@ -85,12 +90,14 @@ internal sealed class DWMSymbolHandler(ILogger logger) : ProgressAwareObject
 
                 if (baseAddress == 0)
                 {
-                    InformProgress($"({i}/{MAX_RETRIES}) Failed to fetch symbols from Microsoft Servers, retrying...");
+                    // InformProgress($"({i}/{MAX_RETRIES}) Failed to fetch symbols from Microsoft Servers, retrying...");
+                    logger.Warning("({Retry}/{MaxRetries}) Failed to fetch symbols from Microsoft Servers, retrying...", i + 1, MAX_RETRIES);
                     await Task.Delay(TimeSpan.FromSeconds(DELAY_BETWEEN_RETRIES_SEC));
                 }
                 else
                 {
-                    InformProgress(i != 0 ? $"({i}/{MAX_RETRIES}) Found it!" : "Found it!");
+                    // InformProgress(i != 0 ? $"({i}/{MAX_RETRIES}) Found it!" : "Found it!");
+                    logger.Information(i != 0 ? "({Retry}/{MaxRetries}) Found it!" : "Found it!", i + 1, MAX_RETRIES);
                     break;
                 }
             }

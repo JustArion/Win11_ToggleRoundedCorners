@@ -1,13 +1,14 @@
-﻿namespace Dawn.Apps.ToggleRoundedCorners.ViewModels;
+﻿using Microsoft.Extensions.Logging;
+using Serilog.Events;
+
+namespace Dawn.Apps.ToggleRoundedCorners.ViewModels;
 
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using global::Serilog;
-using Libs.ToggleRoundedCorners.Native;
 using Services.Interfaces;
 using Tools;
-using Application = System.Windows.Forms.Application;
 
 public partial class MainViewModel : ObservableObject
 {
@@ -16,7 +17,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ILogger _logger = null!;
     private readonly string _taskSchedulerKey = $"{Application.ProductName!}_BackgroundTask";
 
-    public MainViewModel(ICornerService cornerService, ITaskSchedulerService taskScheduler, ILogger logger)
+    public MainViewModel(ICornerService cornerService, ITaskSchedulerService taskScheduler, ILogger logger, GUISink guiSink)
     {
         _cornerService = cornerService;
         _taskScheduler = taskScheduler;
@@ -28,9 +29,28 @@ public partial class MainViewModel : ObservableObject
         ClearCacheCommand = new AsyncRelayCommand(ClearCache);
         RestartDWMCommand = new AsyncRelayCommand(RestartDWM);
         
-        _cornerService.SubscribeProgressUpdates(callback: s => logger.Information("Progress Update: {Update}", s));
-
         RunsOnStartup = taskScheduler.IsEnabled(_taskSchedulerKey);
+        guiSink.OnLog += OnLog;
+    }
+
+    private void OnLog(LogEventLevel logLevel, string message)
+    {
+        switch (logLevel)
+        {
+            case LogEventLevel.Information:
+                _progressCallbacks.ForEach(x => x(message));
+                break;
+            case LogEventLevel.Error:
+                _errorCallbacks.ForEach(x => x(message));
+                break;
+            case LogEventLevel.Verbose:
+            case LogEventLevel.Debug:
+            case LogEventLevel.Warning:
+            case LogEventLevel.Fatal:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, null);
+        }
     }
 
     private async Task RestartDWM()
@@ -53,7 +73,7 @@ public partial class MainViewModel : ObservableObject
     public void Initialize() => Task.Run(async () =>
     {
         var result = await AsyncOperation(_cornerService.InitializeIfNecessary());
-        
+
         if (!result.Success)
             _errorCallbacks.ForEach(callback => callback("💀 " + result.Exception!.Message));
     });
@@ -76,7 +96,8 @@ public partial class MainViewModel : ObservableObject
         }
     }
     
-    public void SubscribeProgress(Action<string> callback) => _cornerService.SubscribeProgressUpdates(callback);
+    private readonly List<Action<string>> _progressCallbacks = [];
+    public void SubscribeProgress(Action<string> callback) => _progressCallbacks.Add(callback);
 
     private readonly List<Action<string>> _errorCallbacks = [];
     public void SubscribeError(Action<string> callback) => _errorCallbacks.Add(callback);

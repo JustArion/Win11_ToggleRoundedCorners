@@ -103,5 +103,8 @@ internal sealed class CornerService(ILogger logger) : ICornerService
         }
     }
 
-    public void SubscribeProgressUpdates(Action<string> callback) => _dwmInteraction.AlertProgress += callback;
+    public void SubscribeProgressUpdates(Action<string> callback)
+    {
+        
+    }
 }

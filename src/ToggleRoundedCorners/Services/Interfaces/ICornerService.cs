@@ -12,6 +12,4 @@ public interface ICornerService
 
     Task<SuccessResult> RestartDWM();
     Task<SuccessResult> ClearCache();
-
-    void SubscribeProgressUpdates(Action<string> callback);
 }

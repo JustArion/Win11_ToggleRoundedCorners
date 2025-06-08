@@ -1,4 +1,6 @@
 ﻿#nullable enable
+using Dawn.Apps.ToggleRoundedCorners.Tools;
+
 namespace Dawn.Serilog.CustomEnrichers;
 
 using System.Diagnostics;
@@ -27,7 +29,7 @@ public partial class ClassNameEnricher : ILogEventEnricher
                 if (type == typeof(ClassNameEnricher))
                     return false;
 
-                return !type.FullName!.StartsWith("Serilog.");
+                return !type.FullName!.StartsWith("Serilog.") && !type.FullName.Contains(nameof(GUISink));
             });
         if (frame == null)
             return;

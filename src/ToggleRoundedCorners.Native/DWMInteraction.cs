@@ -1,4 +1,6 @@
-﻿namespace Dawn.Libs.ToggleRoundedCorners.Native;
+﻿using System.Text;
+
+namespace Dawn.Libs.ToggleRoundedCorners.Native;
 
 using System.Diagnostics;
 using System.Text.Json;
@@ -7,7 +9,7 @@ using PartialStructs;
 using Serilog;
 using Symbols;
 
-public sealed class DWMInteraction(ILogger logger) : ProgressAwareObject, IDisposable
+public sealed class DWMInteraction(ILogger logger) : IDisposable
 {
     public enum RoundedCorners
     {
@@ -37,7 +39,7 @@ public sealed class DWMInteraction(ILogger logger) : ProgressAwareObject, IDispo
             _processInteraction = new ProcessInteraction(pid, logger);
 
             var symbolHandler = new DWMSymbolHandler(logger);
-            symbolHandler.AlertProgress += InformProgress;
+            // symbolHandler.AlertProgress += InformProgress;
 
             var baseAddress = (ulong)_processModule.BaseAddress;
             var symbolResult = await symbolHandler.GetSymbol("g_pdmInstance", baseAddress);
@@ -45,7 +47,7 @@ public sealed class DWMInteraction(ILogger logger) : ProgressAwareObject, IDispo
             if (!symbolResult.Success)
             {
                 var ex1 = symbolResult.Exception!;
-                InformProgress("Unable to find g_pdmInstance, doing alternative lookup for CDesktopManager::s_pDesktopManagerInstance instead");
+                logger.Information("Unable to find g_pdmInstance, doing alternative lookup for CDesktopManager::s_pDesktopManagerInstance instead");
                 symbolResult = await symbolHandler.GetSymbol("CDesktopManager::s_pDesktopManagerInstance", baseAddress);
                 
                 if (!symbolResult.Success)
@@ -157,23 +159,53 @@ public sealed class DWMInteraction(ILogger logger) : ProgressAwareObject, IDispo
         else
             logger.Error(exception, "Failed to read CDesktopManager after write");
 
+        OnCornersChange(roundedCorners, enabled);
+
+        
+        return retVal;
+    }
+
+    private void OnCornersChange(RoundedCorners roundedCorners, bool currentlyRounded)
+    {
         switch (roundedCorners)
         {
             case RoundedCorners.Default:
-                InformProgress("Reset to default Windows 11 rounded corners!");
+                logger.Information("Reset to default Windows 11 rounded corners!");
                 break;
             case RoundedCorners.Toggle:
-                InformProgress($"Toggled rounded corners from ({(enabled ? "Rounded" : "Sharp")}) -> ({(enabled ? "Sharp" : "Rounded")})");
+                logger.Information("Toggled rounded corners from ({Current}) -> ({New})", currentlyRounded ? "Rounded" : "Sharp", currentlyRounded ? "Sharp" : "Rounded");
                 break;
             case RoundedCorners.Sharp:
-                InformProgress("Your windows now have sharp corners! New windows are automatically sharp!");
+                logger.Information("Your windows now have sharp corners! New windows are automatically sharp!");
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(roundedCorners), roundedCorners, null);
         }
+
+        if (currentlyRounded)
+        {
+            // logger.Information("Click on a window to have it refresh");
+
+        }
         
-        if (enabled)
-            InformProgress("Click on a window to have it refresh");
+        try
+        {
+            RedrawWindows(currentlyRounded);
+        }
+        catch (Exception e)
+        {
+            logger.Error(e, "Failed to redraw windows");
+        }
+    }
+
+    private static List<HWND> GetAllWindows()
+    {
+        var retVal = new List<HWND>();
+        EnumWindows((hwnd, _) =>
+        {
+            retVal.Add(hwnd);
+            return true;
+        }, 0);
         
         return retVal;
     }
@@ -245,7 +277,7 @@ public sealed class DWMInteraction(ILogger logger) : ProgressAwareObject, IDispo
             if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, build))
                 continue;
 
-            logger.Information("Used build specific read for build {Build}", build);
+            logger.Debug("Used build specific read for build {Build}", build);
             return function(pdmInstance);
         }
 
@@ -287,7 +319,7 @@ public sealed class DWMInteraction(ILogger logger) : ProgressAwareObject, IDispo
             if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, build)) 
                 continue;
             
-            logger.Information("Used build specific mutation for build {Build}", build);
+            logger.Debug("Used build specific mutation for build {Build}", build);
             return function(g_pdmInstance, sharpCorners);
         }
 

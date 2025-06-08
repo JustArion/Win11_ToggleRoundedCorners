@@ -14,10 +14,7 @@ public class SingleInstanceApplication : Application
         AttachToParent();
         Console.WriteLine();
         
-        #if DEBUG
-        return;
-        #endif
-
+        #if !DEBUG
         var name = System.Windows.Forms.Application.ProductName!;
         name = Convert.ToBase64String(Encoding.UTF8.GetBytes(name));
         
@@ -35,5 +32,6 @@ public class SingleInstanceApplication : Application
         Console.Error.WriteLine("Another instance of this application is already running.");
 
         Shutdown(1);
+        #endif
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using Serilog.Core;
 
 namespace Dawn.Apps.ToggleRoundedCorners;
 
@@ -29,9 +30,9 @@ public partial class App
     
     
     private const string LOGGING_FORMAT = "{Level:u1} {Timestamp:yyyy-MM-dd HH:mm:ss.ffffff}   [{Source}] {Message:lj}{NewLine}{Exception}";
-    private static ServiceProvider ConfigureServices(ServiceCollection services)
+    private static ServiceProvider ConfigureServices(ServiceCollection collection)
     {
-        services.AddSerilog(config =>
+        collection.AddSerilog(config =>
         {
             config
                 .MinimumLevel.Is(LogEventLevel.Verbose)
@@ -59,17 +60,23 @@ public partial class App
             config.WriteTo.Seq(Arguments.HasCustomSeqUrl ? Arguments.CustomSeqUrl : "http://localhost:9999");
             #endif
         });
-        
-        services.AddSingleton<IWindowService, WindowService>();
-        services.AddSingleton<ICornerService, CornerService>();
-        services.AddSingleton<ITaskSchedulerService, AdminTaskScheduler>();
-        
-        services.AddSingleton<TaskService>(_ => TaskService.Instance);
-        
-        services.AddSingleton<MainViewModel>();
-        services.AddSingleton<MainView>();
 
-        return services.BuildServiceProvider();
+        collection.AddSingleton<GUISink>();
+
+        collection.AddSingleton<IWindowService, WindowService>();
+        collection.AddSingleton<ICornerService, CornerService>(services =>
+        {
+            var logger = services.GetRequiredService<GUISink>();
+            return new CornerService(logger);
+        });
+        collection.AddSingleton<ITaskSchedulerService, AdminTaskScheduler>();
+        
+        collection.AddSingleton<TaskService>(_ => TaskService.Instance);
+        
+        collection.AddSingleton<MainViewModel>();
+        collection.AddSingleton<MainView>();
+
+        return collection.BuildServiceProvider();
     }
     
     private static void InitConsole()
