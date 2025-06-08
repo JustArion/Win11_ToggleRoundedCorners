@@ -14,7 +14,7 @@
         WindowStartupLocation="CenterScreen"
         Title="Windows 11 Rounded Corners Menu"
         Style="{StaticResource WindowStyle}"
-        Height="650" Width="750">
+        Height="650" Width="950">
     
     <Window.DataContext>
         <vm:MainViewModel/>
