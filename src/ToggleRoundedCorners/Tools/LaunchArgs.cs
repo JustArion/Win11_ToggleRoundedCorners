@@ -19,14 +19,14 @@ public struct LaunchArgs
         CommandLine = string.Join(" ", args);
         UseSharpCorners = args.Contains(USE_SHARP_CORNERS_ARGUMENT);
         
-        ExtendedLogging  = args.Contains("--extended-logging");
-        NoFileLogging = args.Contains("--no-file-logging");
+        ExtendedLogging  = args.Contains(EXTENDED_LOGGING_ARGUMENT);
+        NoFileLogging = args.Contains(NO_FILE_LOGGING_ARGUMENT);
         
-        CustomSeqUrl = ExtractArgumentValue("--seq-url=", args);
+        CustomSeqUrl = ExtractArgumentValue(CUSTOM_SEQ_URL_ARGUMENT, args);
         HasCustomSeqUrl = Uri.TryCreate(CustomSeqUrl, UriKind.Absolute, out _);
         Headless = args.Contains(HEADLESS_ARGUMENT);
 
-        if (int.TryParse(ExtractArgumentValue("--bind-to=", args), out var pid))
+        if (int.TryParse(ExtractArgumentValue(BIND_TO_ARGUMENT, args), out var pid))
         {
             ProcessBinding = pid;
             HasProcessBinding = true;
