@@ -2,6 +2,9 @@
 
 using Serilog;
 
+/// <summary>
+/// Handles interactions with a remote process memory.
+/// </summary>
 internal sealed unsafe class ProcessInteraction(uint processId, ILogger logger) : IDisposable
 {
     internal readonly SafeHPROCESS _processHandle = OpenProcess(new(ProcessAccess.PROCESS_ALL_ACCESS), false, processId);

@@ -1,13 +1,15 @@
 ﻿namespace Dawn.Libs.ToggleRoundedCorners.Native.Memory;
 
+/// <summary>
+///  AVGuard is a static class that provides methods to ensure memory safety
+/// </summary>
 internal static class AVGuard
 {
     public static unsafe SuccessResult AgainstReads<T>(void* ptr, HPROCESS proc = default) where T : unmanaged
     {
-        var addressInfoResult = QueryAddressInformation((nint)ptr, proc);
-        if (!addressInfoResult.Success)
-            return SuccessResult.Failed with { Exception = addressInfoResult.Exception };
-        var addressInfo = addressInfoResult.Value;
+        var (success, exception, addressInfo) = QueryAddressInformation((nint)ptr, proc);
+        if (!success)
+            return SuccessResult.Failed with { Exception = exception };
 
         var state = (MEM_ALLOCATION_TYPE)addressInfo.State;
         if (state != MEM_ALLOCATION_TYPE.MEM_COMMIT)
@@ -31,10 +33,9 @@ internal static class AVGuard
     
     public static unsafe SuccessResult AgainstWrites<T>(void* ptr, HPROCESS proc = default) where T : unmanaged
     {
-        var addressInfoResult = QueryAddressInformation((nint)ptr, proc);
-        if (!addressInfoResult.Success)
-            return SuccessResult.Failed with { Exception = addressInfoResult.Exception };
-        var addressInfo = addressInfoResult.Value;
+        var (success, exception, addressInfo) = QueryAddressInformation((nint)ptr, proc);
+        if (!success)
+            return SuccessResult.Failed with { Exception = exception };
 
         var state = (MEM_ALLOCATION_TYPE)addressInfo.State;
         if (state != MEM_ALLOCATION_TYPE.MEM_COMMIT)

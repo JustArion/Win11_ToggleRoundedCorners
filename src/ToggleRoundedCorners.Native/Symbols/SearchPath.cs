@@ -2,6 +2,9 @@
 
 using System.Text;
 
+/// <summary>
+/// Represents a utility class for creating symbol search paths.
+/// </summary>
 internal static class SearchPath
 {
     internal static string Create(string symbolServer, FileInfo? cacheLocation = null)

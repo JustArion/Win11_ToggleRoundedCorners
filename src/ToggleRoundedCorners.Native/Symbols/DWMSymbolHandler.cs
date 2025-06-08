@@ -3,10 +3,11 @@
 using System.Diagnostics.CodeAnalysis;
 using Serilog;
 
-internal sealed class DWMSymbolHandler(ILogger logger) //: ProgressAwareObject
+/// <summary>
+/// Handles fetching symbols for the uDWM.dll from the Microsoft Symbol Server.
+/// </summary>
+internal sealed class DWMSymbolHandler(ILogger logger)
 {
-    // protected override void OnProgress(string reason) => logger.Verbose("SymbolHandler: ({Reason})", reason);
-
     [SuppressMessage("ReSharper", "SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault")]
     internal async Task<SuccessResult<SYMBOL_INFO>> GetSymbol(string symbolName, ulong targetBaseAddress)
     {

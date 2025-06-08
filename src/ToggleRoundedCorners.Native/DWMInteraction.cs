@@ -9,6 +9,9 @@ using PartialStructs;
 using Serilog;
 using Symbols;
 
+/// <summary>
+/// This class provides an interface to interact with the Desktop Window Manager (DWM) to toggle rounded corners on Windows 11.
+/// </summary>
 public sealed class DWMInteraction(ILogger logger) : IDisposable
 {
     public enum RoundedCorners
