@@ -21,7 +21,6 @@ internal sealed class DWMSymbolHandler(ILogger logger)
         if (!ourDbgHelp.Exists)
         {
             var systemDbgHelp = FromSystem("dbghelp.dll");
-            // InformProgress("Copying dbghelp.dll to our folder");
             logger.Information("Copying dbghelp.dll from {Source} to {Destination}", systemDbgHelp.FullName, ourDbgHelp.FullName);
             systemDbgHelp.CopyTo(ourDbgHelp.FullName);
         }
@@ -38,7 +37,6 @@ internal sealed class DWMSymbolHandler(ILogger logger)
                 _ => throw new PlatformNotSupportedException()
             };
     
-            // InformProgress("Copying symsrv.dll to our folder");
             logger.Information("Copying symsrv.dll from {Source} to {Destination}", Path.Combine(AppContext.BaseDirectory, folder, "symsrv.dll"), ourSymSrv.FullName);
             File.Copy(Path.Combine(AppContext.BaseDirectory, folder, "symsrv.dll"), Path.Combine(AppContext.BaseDirectory, "symsrv.dll"));
             
@@ -46,14 +44,12 @@ internal sealed class DWMSymbolHandler(ILogger logger)
         RemoveUnusedSymSrv();
 
         
-        // InformProgress("Initializing Microsoft Symbol Database");
         logger.Information("Initializing Microsoft Symbol Database");
         try
         {
             if (!SymInitialize(proc, searchPath, false))
                 return Failed<SYMBOL_INFO>();
         
-            // InformProgress("Loading Symbols from Cache or from Microsoft Servers...");
             logger.Information("Loading Symbols from Cache or from Microsoft Servers...");
             var dwmBinary = FromSystem("uDWM.dll");
             var baseAddress = 0UL;
@@ -70,7 +66,6 @@ internal sealed class DWMSymbolHandler(ILogger logger)
 
                 if (!informedSymbolName)
                 {
-                    // InformProgress($"Looking through symbols for {symbolName}");
                     logger.Information("Looking through symbols for {SymbolName}", symbolName);
                     informedSymbolName = true;
                 }
@@ -91,13 +86,11 @@ internal sealed class DWMSymbolHandler(ILogger logger)
 
                 if (baseAddress == 0)
                 {
-                    // InformProgress($"({i}/{MAX_RETRIES}) Failed to fetch symbols from Microsoft Servers, retrying...");
                     logger.Warning("({Retry}/{MaxRetries}) Failed to fetch symbols from Microsoft Servers, retrying...", i + 1, MAX_RETRIES);
                     await Task.Delay(TimeSpan.FromSeconds(DELAY_BETWEEN_RETRIES_SEC));
                 }
                 else
                 {
-                    // InformProgress(i != 0 ? $"({i}/{MAX_RETRIES}) Found it!" : "Found it!");
                     logger.Information(i != 0 ? "({Retry}/{MaxRetries}) Found it!" : "Found it!", i + 1, MAX_RETRIES);
                     break;
                 }
@@ -116,7 +109,7 @@ internal sealed class DWMSymbolHandler(ILogger logger)
             if (offset == EXPECTED_OFFSET)
                 logger.Debug("Found symbol: {Symbol} at expected offset 0x{Offset:X}", symbol.Value.Name, offset);
             else
-                logger.Warning("Found symbol: {Symbol} at unexpected offset 0x{Offset:X}. The base address is 0x{BaseAddress:X}", symbol.Value.Name, offset, baseAddress);
+                logger.Warning("Found symbol: {Symbol} at unexpected offset 0x{Offset:X}. Expected at offset 0x{ExpectedOffset:X}", symbol.Value.Name, offset, EXPECTED_OFFSET);
             return symbol.Value;
         }
         finally
@@ -135,7 +128,10 @@ internal sealed class DWMSymbolHandler(ILogger logger)
         }
     }
 
-    private const uint EXPECTED_OFFSET = 0x147A00;
+    // Name             Offset       Section    Kind
+    // ----             -------      -------    ----
+    // g_pdmInstance    0x11BBD8    .data       Data           
+    private const uint EXPECTED_OFFSET = 0x11BBD8;
     
     private static void RemoveUnusedSymSrv()
     {
