@@ -221,6 +221,8 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
     {
         var hwnds = GetAllWindows();
 
+        logger.Information("Updating current windows");
+        
         foreach (var hwnd in hwnds)
         {
             if (!IsWindowVisible(hwnd))
@@ -233,7 +235,6 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
             if (title.Length == 0)
                 continue;
             
-            logger.Information("Updating current windows");
             logger.Debug("Redrawing window: {Title}", title);
             
             try
