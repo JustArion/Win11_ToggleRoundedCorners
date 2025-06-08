@@ -5,7 +5,7 @@
         <LangVersion>preview</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>Dawn.Apps.ToggleRoundedCorners.Native</RootNamespace>
+        <RootNamespace>Dawn.Libs.ToggleRoundedCorners.Native</RootNamespace>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
