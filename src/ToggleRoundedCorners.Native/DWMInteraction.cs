@@ -248,16 +248,16 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
 
                 var result = DwmApi.DwmSetWindowAttribute(hwnd,
                     DwmApi.DWMWINDOWATTRIBUTE.DWMWA_WINDOW_CORNER_PREFERENCE, preference);
+                if (!result.Failed)
+                    continue;
 
+                logger.Error(result.GetException()!, "Failed to redraw window {Title}", title);
 
                 SetWindowPos(hwnd, 0, 0, 0, 0, 0,
                     SetWindowPosFlags.SWP_NOMOVE | SetWindowPosFlags.SWP_NOSIZE | SetWindowPosFlags.SWP_NOZORDER |
                     SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_FRAMECHANGED);
 
-                if (!result.Failed)
-                    continue;
 
-                logger.Error(result.GetException()!, "Failed to redraw window {Title}", title);
             }
             catch (Exception e)
             {
