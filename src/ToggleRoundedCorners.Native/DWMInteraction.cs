@@ -177,6 +177,58 @@ public sealed class DWMInteraction(ILogger logger) : ProgressAwareObject, IDispo
         
         return retVal;
     }
+    
+    /// <summary>
+    /// This only updates the currently visible windows of their intended state, using the DWMAPI is not a permanent solution, we can't base the entire app off this
+    /// since this app would need to run constantly then, it might have issues with apps that have a higher level of permission (like games with Anti-Cheats)
+    /// </summary>
+    private void RedrawWindows(bool currentlyRounded)
+    {
+        var hwnds = GetAllWindows();
+
+        foreach (var hwnd in hwnds)
+        {
+            if (!IsWindowVisible(hwnd))
+                continue;
+            
+            // window title
+            var title = new StringBuilder(256);
+            _ = GetWindowText(hwnd, title, title.Capacity);
+
+            if (title.Length == 0)
+                continue;
+            
+            logger.Information("Updating current windows");
+            logger.Debug("Redrawing window: {Title}", title);
+            
+            try
+            {
+                // Redraw the window
+                var preference = currentlyRounded
+                    ? DwmApi.DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_DONOTROUND
+                    : DwmApi.DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_ROUND;
+                
+                // logger.Debug("Preference: {Preference}", preference);
+
+                var result = DwmApi.DwmSetWindowAttribute(hwnd,
+                    DwmApi.DWMWINDOWATTRIBUTE.DWMWA_WINDOW_CORNER_PREFERENCE, preference);
+
+
+                SetWindowPos(hwnd, 0, 0, 0, 0, 0,
+                    SetWindowPosFlags.SWP_NOMOVE | SetWindowPosFlags.SWP_NOSIZE | SetWindowPosFlags.SWP_NOZORDER |
+                    SetWindowPosFlags.SWP_NOACTIVATE | SetWindowPosFlags.SWP_FRAMECHANGED);
+
+                if (!result.Failed)
+                    continue;
+
+                logger.Error(result.GetException()!, "Failed to redraw window {Title}", title);
+            }
+            catch (Exception e)
+            {
+                logger.Error(e, "Exception while redrawing window ({Title})", title);
+            }
+        }
+    }
 
 
     private Dictionary<int, Func<nint, SuccessResult<bool>>>? _versionSpecificGetStates;
