@@ -151,7 +151,7 @@ internal sealed class DWMSymbolHandler(ILogger logger)
     private SuccessResult<T> Failed<T>(Exception? ex = null)
     {
         ex ??= Kernel32.GetLastError().GetException()!;
-        logger.Error(ex, "Failed to fetch Symbols from Microsoft Servers");
+        logger.Error(ex, "");
         return SuccessResult<T>.Failed with { Exception = ex };
     }
 
