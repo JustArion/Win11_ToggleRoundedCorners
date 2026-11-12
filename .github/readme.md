@@ -28,6 +28,7 @@
 - 23H2
 - 24H2
 - 25H2
+- 26H2
 
 ---
 ## Custom Launch Args
