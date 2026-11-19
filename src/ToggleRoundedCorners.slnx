@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="ScratchPad/ScratchPad.csproj" />
+  <Project Path="ToggleRoundedCorners.Native/ToggleRoundedCorners.Native.csproj" />
+  <Project Path="ToggleRoundedCorners/ToggleRoundedCorners.csproj" />
+</Solution>
