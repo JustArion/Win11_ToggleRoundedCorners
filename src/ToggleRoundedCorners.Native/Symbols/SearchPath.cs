@@ -7,7 +7,7 @@ using System.Text;
 /// </summary>
 internal static class SearchPath
 {
-    internal static string Create(string symbolServer, FileInfo? cacheLocation = null)
+    internal static string Create(string symbolServer, DirectoryInfo? cacheLocation = null)
     {
         var sb = new StringBuilder();
         
@@ -21,5 +21,5 @@ internal static class SearchPath
         return sb.ToString();
     }
 
-    internal static string CreateDefault() => Create("https://msdl.microsoft.com/download/symbols");
+    internal static string CreateDefault(DirectoryInfo? cacheLocation = null) => Create("https://msdl.microsoft.com/download/symbols", cacheLocation);
 }
