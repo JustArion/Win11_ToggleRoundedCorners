@@ -10,10 +10,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Debugging.Platform.SymSrv" Version="20240911.1650.0"/>
-        <PackageReference Include="Vanara.PInvoke.DbgHelp" Version="4.0.4" />
-        <PackageReference Include="Vanara.PInvoke.Kernel32" Version="4.0.4" />
-        <PackageReference Include="Vanara.PInvoke.User32" Version="4.0.4" />
+        <PackageReference Include="Microsoft.Debugging.Platform.SymSrv" Version="20260319.1511.0" />
+        <PackageReference Include="Vanara.PInvoke.DbgHelp" Version="5.0.8" />
+        <PackageReference Include="Vanara.PInvoke.Kernel32" Version="5.0.8" />
+        <PackageReference Include="Vanara.PInvoke.User32" Version="5.0.8" />
 
         <None Include="$(MicrosoftDebuggingPlatformSymSrvContent)**\*" CopyToOutputDirectory="PreserveNewest" Visible="False" Link="%(RecursiveDir)%(FileName)%(Extension)" />
     </ItemGroup>

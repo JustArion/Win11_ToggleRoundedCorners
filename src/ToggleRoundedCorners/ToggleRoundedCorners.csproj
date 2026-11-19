@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net9.0-windows</TargetFramework>
+        <TargetFramework>net11.0-windows</TargetFramework>
         <LangVersion>preview</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -40,25 +40,26 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-        <PackageReference Include="DynamicData" Version="9.1.1" />
-        <PackageReference Include="JetBrains.Annotations" Version="2024.3.0" />
-        <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageReference Include="DynamicData" Version="9.5.0" />
+        <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
+        <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.161" />
 
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.1" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
 
-        <PackageReference Include="System.Reactive" Version="6.0.1" />
+        <PackageReference Include="System.Reactive" Version="7.0.0" />
 
-        <PackageReference Include="TaskScheduler" Version="2.11.0" />
+        <PackageReference Include="TaskScheduler" Version="2.12.2" />
 
-        <PackageReference Include="Vanara.PInvoke.User32" Version="4.0.4" />
+        <PackageReference Include="Vanara.PInvoke.User32" Version="5.0.8" />
 
-        <PackageReference Include="Serilog" Version="4.2.0" />
-        <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+        <PackageReference Include="Serilog" Version="4.4.0" />
+        <PackageReference Include="Serilog.AspNetCore" Version="11.0.0" />
         <PackageReference Include="Serilog.Enrichers.Process" Version="3.0.0" />
-        <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
-        <PackageReference Include="Serilog.Sinks.Console.LogThemes" Version="0.3.0" />
-        <PackageReference Include="Serilog.Sinks.Seq" Version="9.0.0" />
+        <PackageReference Include="Serilog.Settings.Configuration" Version="11.0.0" />
+        <PackageReference Include="Serilog.Sinks.Console.LogThemes" Version="0.4.0" />
+        <PackageReference Include="Serilog.Sinks.Seq" Version="9.1.0" />
+        <PackageReference Include="Dawn.Common.Windows" Version="1.0.5" />
     </ItemGroup>
 
     <ItemGroup>
