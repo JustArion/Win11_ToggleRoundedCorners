@@ -118,10 +118,10 @@ public partial class App
             {
                 if (Arguments.UseSharpCorners)
                 {
-                    var result = await Services.GetRequiredService<ICornerService>().SetSharpCorners();
+                    var error = await Services.GetRequiredService<ICornerService>().SetSharpCorners();
 
-                    if (!result.Success) 
-                        Log.Error(result.Exception!, "Could not set sharp corners from headless mode");
+                    if (error != null) 
+                        Log.Error(error.ToException(), "Could not set sharp corners from headless mode");
                     else
                         Log.Information("Set sharp corners from headless mode");
                 }

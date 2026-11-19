@@ -1,4 +1,6 @@
-﻿namespace Dawn.Apps.ToggleRoundedCorners.Services;
+﻿using Dawn.Common;
+
+namespace Dawn.Apps.ToggleRoundedCorners.Services;
 
 using global::Serilog;
 using global::Dawn.Libs.ToggleRoundedCorners.Native;
@@ -12,26 +14,28 @@ internal sealed class CornerService(ILogger logger) : ICornerService
     private readonly DWMInteraction _dwmInteraction = new(logger);
     
     private readonly SemaphoreSlim _initializeSemaphore = new(1, 1);
-    private SuccessResult? _cachedInitializeResult;
+    private Error? _cachedInitializeResult;
+    private bool _isInitialized;
 
-    public async Task<SuccessResult> InitializeIfNecessary() => await Initialize(true);
+    public async Task<Error?> InitializeIfNecessary() => await Initialize(true);
 
-    private async Task<SuccessResult> Initialize(bool shouldWait)
+    private async Task<Error?> Initialize(bool shouldWait)
     {
         // Windows 11
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
-            return SuccessResult.Failed with { Exception = new PlatformNotSupportedException("Windows 11 or greater is required to run this app") };
+            return new PlatformNotSupportedException("Windows 11 or greater is required to run this app");
         
         if (shouldWait)
             await _initializeSemaphore.WaitAsync();
         try
         {
-            if (_cachedInitializeResult is { Success: true })
-                return _cachedInitializeResult.Value;
+            if (_isInitialized)
+                return _cachedInitializeResult;
 
             var result = await Task.Run(async () => await _dwmInteraction.Initialize());
 
             _cachedInitializeResult = result;
+            _isInitialized = true;
             return result;
         }
         finally
@@ -41,38 +45,35 @@ internal sealed class CornerService(ILogger logger) : ICornerService
         }
     }
     
-    public async Task<SuccessResult> ResetToDefault()
+    public async Task<Error?> ResetToDefault()
     {
         var result = await InitializeIfNecessary();
-        if (!result.Success)
-            return SuccessResult.Failed with { Exception = new AggregateException("Failed to Initialize", result.Exception!) };
-
-        return _dwmInteraction.ResetToDefault();
+        return result == null
+            ? _dwmInteraction.ResetToDefault()
+            : result;
     }
 
-    public async Task<SuccessResult> ToggleRoundedCorners()
+    public async Task<Error?> ToggleRoundedCorners()
     {
         var result = await InitializeIfNecessary();
-        if (!result.Success)
-            return SuccessResult.Failed with { Exception = new AggregateException("Failed to Initialize", result.Exception!) };
-        
-        return _dwmInteraction.ToggleRoundedCorners();
+        return result == null
+            ? _dwmInteraction.ToggleRoundedCorners()
+            : result;
     }
 
-    public async Task<SuccessResult> SetSharpCorners()
+    public async Task<Error?> SetSharpCorners()
     {
         var result = await InitializeIfNecessary();
-        if (!result.Success)
-            return SuccessResult.Failed with { Exception = new AggregateException("Failed to Initialize", result.Exception!) };
-        
-        return _dwmInteraction.SetSharpCorners();
+        return result == null 
+            ? _dwmInteraction.SetSharpCorners() 
+            : result;
     }
 
-    public Task<SuccessResult> SetRoundedCorners() => ResetToDefault();
-    public async Task<SuccessResult> RestartDWM()
+    public Task<Error?> SetRoundedCorners() => ResetToDefault();
+    public async Task<Error?> RestartDWM()
     {
         var result = DWMInteraction.GetDWMProcess(logger, out _, out var proc);
-        if (!result.Success)
+        if (result != null)
             return result;
 
         proc.Kill();
@@ -82,23 +83,24 @@ internal sealed class CornerService(ILogger logger) : ICornerService
         return await ClearCache();
     }
 
-    public async Task<SuccessResult> ClearCache()
+    public async Task<Error?> ClearCache()
     {
         await _initializeSemaphore.WaitAsync();
         try
         {
             _cachedInitializeResult = null;
+            _isInitialized = false;
             
-            if (_dwmInteraction.CachePath.Exists)
-                _dwmInteraction.CachePath.Delete(true);
+            if (DWMInteraction.CachePath.Exists)
+                DWMInteraction.CachePath.Delete(true);
 
             // Commented this out as a clear cache method shouldn't refresh the cache
             // return await Task.Run(async () => await Internal_InitializeIfNecessary(false));
-            return true;
+            return null;
         }
         catch (Exception e)
         {
-            return SuccessResult.Failed with { Exception = e };
+            return e;
         }
         finally
         {

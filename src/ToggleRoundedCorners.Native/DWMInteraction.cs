@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Dawn.Common.Windows.Extensions;
 
 namespace Dawn.Libs.ToggleRoundedCorners.Native;
 
@@ -24,16 +25,16 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
     private ProcessInteraction? _processInteraction;
     private ProcessModule? _processModule;
     private SYMBOL_INFO _symbol;
-    public DirectoryInfo CachePath => new (Path.Combine(AppContext.BaseDirectory, "sym"));
+    public static DirectoryInfo CachePath => new (Path.Combine(AppContext.BaseDirectory, "sym"));
 
 
-    public async Task<SuccessResult> Initialize()
+    public async Task<Error?> Initialize()
     {
         try
         {
-            var result = GetDWMProcess(logger, out var pid, out var managedHandle);
-            if (!result)
-                return result;
+            var error = GetDWMProcess(logger, out var pid, out var managedHandle);
+            if (error != null)
+                return error;
             
             _processModule?.Dispose();
             _processModule = managedHandle.Modules.Cast<ProcessModule>().First(x => x.ModuleName == "udwm.dll");
@@ -45,27 +46,23 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
             // symbolHandler.AlertProgress += InformProgress;
 
             var baseAddress = (ulong)_processModule.BaseAddress;
-            var symbolResult = await symbolHandler.GetSymbol("g_pdmInstance", baseAddress);
+            // We do a lookup for s_pDesktopManagerInstance first since there are more references to it in uDWM.dll than g_pdmInstance
+            // They're both the same global reference
+            var result = await symbolHandler.GetSymbol("CDesktopManager::s_pDesktopManagerInstance", baseAddress);
 
-            if (!symbolResult.Success)
+            if (result is Error primary)
             {
-                var ex1 = symbolResult.Exception!;
-                logger.Information("Unable to find g_pdmInstance, doing alternative lookup for CDesktopManager::s_pDesktopManagerInstance instead");
-                symbolResult = await symbolHandler.GetSymbol("CDesktopManager::s_pDesktopManagerInstance", baseAddress);
+                logger.Information("Unable to find CDesktopManager::s_pDesktopManagerInstance, doing alternative lookup for g_pdmInstance instead");
+                result = await symbolHandler.GetSymbol("g_pdmInstance", baseAddress);
                 
-                if (!symbolResult.Success)
-                {
-                    var ex2 = symbolResult.Exception!;
-                    
-                    if (ex1.Message == ex2.Message)
-                        return SuccessResult.Failed with { Exception = ex1 };
-                    
-                    return SuccessResult.Failed with { Exception = new AggregateException(ex1, ex2) };
-                }
+                if (result is Error fallback)
+                    return primary.Message == fallback.Message
+                        ? primary
+                        : new Error(primary.Message, new AggregateException(primary.ToException(), fallback.ToException()));
             }
 
-            _symbol = symbolResult.Value;
-            return true;
+            _symbol = result.Unwrap();
+            return null;
         }
         catch (Exception e)
         {
@@ -73,11 +70,11 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
             _processInteraction = null;
             _processModule?.Dispose();
             _processModule = null;
-            return SuccessResult.Failed with { Exception = e };
+            return e;
         }
     }
 
-    public static SuccessResult GetDWMProcess(ILogger logger, out uint pid, out Process managedHandle)
+    public static Error? GetDWMProcess(ILogger logger, out uint pid, out Process managedHandle)
     {
         managedHandle = null!;
         pid = 0;
@@ -89,26 +86,28 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
             if (hwnd == 0)
             {
                 logger.Error("Failed to find DWM window");
-                return SuccessResult.Failed with { Exception = Kernel32.GetLastError().GetException()! };
+                return Result.FromLastError();
             }
 
             _ = GetWindowThreadProcessId(hwnd, out pid);
 
             managedHandle = Process.GetProcessById((int)pid);
-            
-            return managedHandle.ProcessName == "dwm" ? true : SuccessResult.Failed with { Exception = new Exception($"DWM process name is not dwm but instead '{managedHandle.ProcessName}'") };
+
+            return managedHandle.ProcessName == "dwm"
+                ? null
+                : new Error($"DWM process name is not dwm but instead '{managedHandle.ProcessName}'");
         }
         catch (Exception e)
         {
             logger.Error(e, "Failed to find DWM process");
-            return SuccessResult.Failed  with { Exception = e };
+            return e;
         }
 
     }
 
-    public SuccessResult ResetToDefault() => SetRoundedCorners();
-    public SuccessResult ToggleRoundedCorners() => SetRoundedCorners(RoundedCorners.Toggle);
-    public SuccessResult SetSharpCorners() => SetRoundedCorners(RoundedCorners.Sharp);
+    public Error? ResetToDefault() => SetRoundedCorners();
+    public Error? ToggleRoundedCorners() => SetRoundedCorners(RoundedCorners.Toggle);
+    public Error? SetSharpCorners() => SetRoundedCorners(RoundedCorners.Sharp);
     
     
     // So, there's a global field called g_pdmInstance holding a reference to the CDesktopManager
@@ -116,29 +115,29 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
     // Then we read from the field where the actual reference lives
     // then we can dereference it.
     // Imagine it as a CDesktopManager**
-    private unsafe SuccessResult SetRoundedCorners(RoundedCorners roundedCorners = RoundedCorners.Default)
+    private unsafe Error? SetRoundedCorners(RoundedCorners roundedCorners = RoundedCorners.Default)
     {
         if (_processInteraction == null || _processModule == null)
-            return SuccessResult.Failed with { Exception = new Exception("DWM Interaction is not initialized properly") };
+            return "DWM Interaction is not initialized properly";
         
         // Gets CDesktopManager*
-        var g_pdmInstance = (CDesktopManager**)_symbol.Address;
-        
-        _processInteraction!.Read<nint>(g_pdmInstance).Deconstruct(out var success, out var exception, out var globalFieldValue);
-        if (!success)
-            return SuccessResult.Failed with { Exception = exception };
+        var pCDesktopManager = (CDesktopManager**)_symbol.Address;
+
+        var cDesktopManagerResult = _processInteraction!.Read<nint>(pCDesktopManager);
+        if (cDesktopManagerResult.Value is not nint globalFieldValue)
+            return (Error)cDesktopManagerResult.Value!;
         
         // Gets a CDesktopManager copy
-        _processInteraction.RemoteDereference<CDesktopManager>(globalFieldValue).Deconstruct(out success, out exception, out var pdmInstance);
-        if (!success)
-            return SuccessResult.Failed with { Exception = exception };
+        var derefResult = _processInteraction.RemoteDereference<CDesktopManager>(globalFieldValue);
+        if (derefResult.Value is not CDesktopManager cDesktopManager)
+            return (Error)cDesktopManagerResult.Value!;
         
-        var json = JsonSerializer.Serialize(pdmInstance, _serializerOptions);
+        var json = JsonSerializer.Serialize(cDesktopManager, _serializerOptions);
         logger.Debug("Before Write: CDesktopManager: {Json}", json);
 
-        GetRemoteState(globalFieldValue).Deconstruct(out success, out exception, out var enabledOnRemote);
-        if (!success)
-            return SuccessResult.Failed with { Exception = exception };
+        var stateResult = GetRemoteState(globalFieldValue);
+        if (stateResult.Value is not bool enabledOnRemote)
+            return (Error)cDesktopManagerResult.Value!;
 
         var enabled = roundedCorners switch
         {
@@ -148,24 +147,23 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
             _ => throw new ArgumentOutOfRangeException(nameof(roundedCorners), roundedCorners, null)
         };
         
-        var retVal = MutateRemoteState(globalFieldValue, enabled);
+        var error = MutateRemoteState(globalFieldValue, enabled);
+        if (error != null)
+            return error;
 
-        if (!retVal.Success)
-            return retVal;
-        
-        _processInteraction.RemoteDereference<CDesktopManager>(globalFieldValue).Deconstruct(out success, out exception, out pdmInstance);
-        if (success)
+        derefResult = _processInteraction.RemoteDereference<CDesktopManager>(globalFieldValue);
+        if (derefResult.IsSuccess)
         {
-            json = JsonSerializer.Serialize(pdmInstance, _serializerOptions);
+            json = JsonSerializer.Serialize(cDesktopManager, _serializerOptions);
             logger.Debug("After Write: CDesktopManager: {Json}", json);
         }
         else
-            logger.Error(exception, "Failed to read CDesktopManager after write");
+            logger.Error((Exception)derefResult.Value!, "Failed to read CDesktopManager after write");
 
         OnCornersChange(roundedCorners, enabled);
 
         
-        return retVal;
+        return error;
     }
 
     private void OnCornersChange(RoundedCorners roundedCorners, bool currentlyRounded)
@@ -267,8 +265,8 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
     }
 
 
-    private Dictionary<int, Func<nint, SuccessResult<bool>>>? _versionSpecificGetStates;
-    private SuccessResult<bool> GetRemoteState(nint pdmInstance)
+    private Dictionary<int, Func<nint, Result<bool>>>? _versionSpecificGetStates;
+    private Result<bool> GetRemoteState(nint pdmInstance)
     {
         _versionSpecificGetStates ??= new()
         {
@@ -285,32 +283,29 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
             return function(pdmInstance);
         }
 
-        return SuccessResult<bool>.Failed with
-        {
-            Exception = new PlatformNotSupportedException("Unable to Read from unsupported Windows version")
-        };
+        return new PlatformNotSupportedException("Unable to Read from unsupported Windows version");
     }
 
-    private SuccessResult<bool> GetState26(nint g_pdmInstance)
+    private Result<bool> GetState26(nint g_pdmInstance)
     {
-        _processInteraction!.Read<CDesktopManager26H2>(nint.Add(g_pdmInstance, CDesktopManager26H2.Offset)).Deconstruct(out var success, out var exception, out var state);
-        if (!success)
-            return SuccessResult<bool>.Failed with { Exception = exception };
+        var result = _processInteraction!.Read<CDesktopManager26H2>(nint.Add(g_pdmInstance, CDesktopManager26H2.Offset));
+        if (result is Error error)
+            return error;
         
-        return state.UseSharpCorners;
+        return new(((CDesktopManager26H2)result.Value).UseSharpCorners);
     }
 
-    private SuccessResult<bool> GetState22(nint g_pdmInstance)
+    private Result<bool> GetState22(nint g_pdmInstance)
     {
-        _processInteraction!.Read<CDesktopManager22H2>(nint.Add(g_pdmInstance, CDesktopManager22H2.Offset)).Deconstruct(out var success, out var exception, out var state);
-        if (!success)
-            return SuccessResult<bool>.Failed with { Exception = exception };
+        var result = _processInteraction!.Read<CDesktopManager22H2>(nint.Add(g_pdmInstance, CDesktopManager22H2.Offset));
+        if (result is Error error)
+            return error;
         
-        return state.UseSharpCorners;
+        return new(((CDesktopManager22H2)result.Value).UseSharpCorners);
     }
 
-    private Dictionary<int, Func<nint, bool, SuccessResult>>? _versionSpecificMutations;
-    private SuccessResult MutateRemoteState(nint g_pdmInstance, bool sharpCorners)
+    private Dictionary<int, Func<nint, bool, Error?>>? _versionSpecificMutations;
+    private Error? MutateRemoteState(nint g_pdmInstance, bool sharpCorners)
     {
         _versionSpecificMutations ??= new()
         {
@@ -327,13 +322,10 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
             return function(g_pdmInstance, sharpCorners);
         }
 
-        return SuccessResult.Failed with
-        {
-            Exception = new PlatformNotSupportedException("Unable to Write to unsupported Windows version")
-        };
+        return new PlatformNotSupportedException("Unable to Write to unsupported Windows version");
     }
 
-    private SuccessResult MutateState26(nint g_pdmInstance, bool sharpCorners)
+    private Error? MutateState26(nint g_pdmInstance, bool sharpCorners)
     {
         var newState = new CDesktopManager26H2
         {
@@ -343,7 +335,7 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
         return _processInteraction!.Write(nint.Add(g_pdmInstance, newState.GetOffset()), newState);
     }
 
-    private SuccessResult MutateState22(nint g_pdmInstance, bool sharpCorners)
+    private Error? MutateState22(nint g_pdmInstance, bool sharpCorners)
     {
         var newState = new CDesktopManager22H2
         {

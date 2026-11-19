@@ -55,27 +55,27 @@ public partial class MainViewModel : ObservableObject
 
     private async Task RestartDWM()
     {
-        var result = await AsyncOperation(_cornerService.RestartDWM());
+        var error = await AsyncOperation(_cornerService.RestartDWM());
         
-        if (!result.Success)
-            _errorCallbacks.ForEach(callback => callback("💀 " + result.Exception!.Message));
+        if (error != null)
+            _errorCallbacks.ForEach(callback => callback("💀 " + error.Message));
     }
 
     private async Task ClearCache()
     {
-        var result = await AsyncOperation(_cornerService.ClearCache());
-        if (!result.Success)
-            _errorCallbacks.ForEach(callback => callback("💀 " + result.Exception!.Message));
+        var error = await AsyncOperation(_cornerService.ClearCache());
+        if (error != null)
+            _errorCallbacks.ForEach(callback => callback("💀 " + error.Message));
         else
             _completionCallbacks.ForEach(callback => callback("Cache Cleared!"));
     }
 
     public void Initialize() => Task.Run(async () =>
     {
-        var result = await AsyncOperation(_cornerService.InitializeIfNecessary());
+        var error = await AsyncOperation(_cornerService.InitializeIfNecessary());
 
-        if (!result.Success)
-            _errorCallbacks.ForEach(callback => callback("💀 " + result.Exception!.Message));
+        if (error != null)
+            _errorCallbacks.ForEach(callback => callback("💀 " + error.Message));
     });
 
     private readonly SemaphoreSlim _operationNotInProgressSemaphore = new(1, 1);
@@ -131,11 +131,11 @@ public partial class MainViewModel : ObservableObject
 
     private async Task UseSharpCorners()
     {
-        var result = await AsyncOperation(_cornerService.SetSharpCorners());
-        if (!result.Success)
+        var error = await AsyncOperation(_cornerService.SetSharpCorners());
+        if (error != null)
         {
-            _logger.Error(result.Exception, "Failed to set sharp corners");
-            _errorCallbacks.ForEach(callback => callback("💀 " + result.Exception!.Message));
+            _logger.Error(error.Exception, "Failed to set sharp corners");
+            _errorCallbacks.ForEach(callback => callback("💀 " + error.Message));
         }
         else 
             _completionCallbacks.ForEach(callback => callback("Now using \"Sharp\" Corners!"));
@@ -143,11 +143,11 @@ public partial class MainViewModel : ObservableObject
 
     private async Task UseRoundedCorners()
     {
-        var result = await AsyncOperation(_cornerService.SetRoundedCorners());
-        if (!result.Success)
+        var error = await AsyncOperation(_cornerService.SetRoundedCorners());
+        if (error != null)
         {
-            _logger.Error(result.Exception, "Failed to set rounded corners");
-            _errorCallbacks.ForEach(callback => callback("💀 " + result.Exception!.Message));
+            _logger.Error(error.Exception, "Failed to set rounded corners");
+            _errorCallbacks.ForEach(callback => callback("💀 " + error.Message));
         }
         else
             _completionCallbacks.ForEach(callback => callback("Now using \"Rounded\" Corners!"));
@@ -155,11 +155,11 @@ public partial class MainViewModel : ObservableObject
 
     private async Task ToggleRoundedCorners()
     {
-        var result = await AsyncOperation(_cornerService.ToggleRoundedCorners());
-        if (!result.Success)
+        var error = await AsyncOperation(_cornerService.ToggleRoundedCorners());
+        if (error != null)
         {
-            _logger.Error(result.Exception, "Failed to toggle rounded corners");
-            _errorCallbacks.ForEach(callback => callback("💀 " + result.Exception!.Message));
+            _logger.Error(error.Exception, "Failed to toggle rounded corners");
+            _errorCallbacks.ForEach(callback => callback("💀 " + error.Message));
         }
         else
             _completionCallbacks.ForEach(callback => callback("Rounded Corners Toggled!"));

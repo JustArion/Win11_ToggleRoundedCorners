@@ -1,85 +1,76 @@
-﻿namespace Dawn.Libs.ToggleRoundedCorners.Native.Memory;
+﻿using Dawn.Common.Windows.Extensions;
+
+namespace Dawn.Libs.ToggleRoundedCorners.Native.Memory;
 
 /// <summary>
 ///  AVGuard is a static class that provides methods to ensure memory safety
 /// </summary>
 internal static class AVGuard
 {
-    public static unsafe SuccessResult AgainstReads<T>(void* ptr, HPROCESS proc = default) where T : unmanaged
+    public static Error? AgainstReads<T>(void* ptr, HPROCESS proc = default) where T : unmanaged
     {
-        var (success, exception, addressInfo) = QueryAddressInformation((nint)ptr, proc);
-        if (!success)
-            return SuccessResult.Failed with { Exception = exception };
+        var result = QueryAddressInformation((nint)ptr, proc);
+        if (result is Error error)
+            return error;
 
-        var state = (MEM_ALLOCATION_TYPE)addressInfo.State;
+        var mbi = result.Unwrap();
+
+        var state = mbi.State;
         if (state != MEM_ALLOCATION_TYPE.MEM_COMMIT)
-            return SuccessResult.Failed with { Exception = new AccessViolationException($"The memory (0x{(nint)ptr:X}) is uncommitted ({state})") };
+            return new AccessViolationException($"The memory (0x{(nint)ptr:X}) is uncommitted ({state})");
 
-        var end = addressInfo.BaseAddress + addressInfo.RegionSize;
+        var end = mbi.BaseAddress + mbi.RegionSize;
+
+        if ((nint)ptr + sizeof(T) > end)
+            return new IndexOutOfRangeException($"The pointer (0x{(nint)ptr:X}) is inbetween memory pages, which is unsupported");
+
+        var canRead = (mbi.Protect & Page_Read_Flags) != 0;
+        return canRead
+            ? default(Error)
+            : new AccessViolationException($"May not read memory at 0x{(nint)ptr:X} for type {typeof(T).Name}");
+    }
+    
+    public static Error? AgainstWrites<T>(void* ptr, HPROCESS proc = default) where T : unmanaged
+    {
+        var result = QueryAddressInformation((nint)ptr, proc);
+        if (result is Error error)
+            return error;
+
+        var mbi = result.Unwrap();
+
+        if (mbi.State != MEM_ALLOCATION_TYPE.MEM_COMMIT)
+            return new AccessViolationException($"The memory (0x{(nint)ptr:X}) is uncommitted ({mbi.State})");
+
+        var end = mbi.BaseAddress + mbi.RegionSize;
 
         if ((nint)ptr + sizeof(T) > end)
         {
-            return SuccessResult.Failed with
-            {
-                Exception = new IndexOutOfRangeException($"The pointer (0x{(nint)ptr:X}) is inbetween memory pages, which is unsupported")
-            };
+            return new IndexOutOfRangeException($"The pointer (0x{(nint)ptr:X}) is inbetween memory pages, which is unsupported");
         }
 
-        var canRead = (addressInfo.Protect & (uint)Page_Read_Flags) != 0;
-        return canRead 
-            ? true 
-            : SuccessResult.Failed with { Exception = new AccessViolationException($"May not read memory at 0x{(nint)ptr:X} for type {typeof(T).Name}") };
+        var canWrite = (mbi.Protect & Page_Write_Flags) != 0;
+        return canWrite
+            ? default(Error)
+            : new AccessViolationException($"May not write memory at 0x{(nint)ptr:X} for type {typeof(T).Name}");
     }
     
-    public static unsafe SuccessResult AgainstWrites<T>(void* ptr, HPROCESS proc = default) where T : unmanaged
+    public static (MEM_PROTECTION Protect, MEM_ALLOCATION_TYPE State) QueryAddress(nint address)
     {
-        var (success, exception, addressInfo) = QueryAddressInformation((nint)ptr, proc);
-        if (!success)
-            return SuccessResult.Failed with { Exception = exception };
-
-        var state = (MEM_ALLOCATION_TYPE)addressInfo.State;
-        if (state != MEM_ALLOCATION_TYPE.MEM_COMMIT)
-            return SuccessResult.Failed with { Exception = new AccessViolationException($"The memory (0x{(nint)ptr:X}) is uncommitted ({state})") };
-
-        var end = addressInfo.BaseAddress + addressInfo.RegionSize;
-
-        if ((nint)ptr + sizeof(T) > end)
-        {
-            return SuccessResult.Failed with
-            {
-                Exception = new IndexOutOfRangeException($"The pointer (0x{(nint)ptr:X}) is inbetween memory pages, which is unsupported")
-            };
-        }
-
-        var canWrite = (addressInfo.Protect & (uint)Page_Write_Flags) != 0;
-        return canWrite 
-            ? true 
-            : SuccessResult.Failed with { Exception = new AccessViolationException($"May not write memory at 0x{(nint)ptr:X} for type {typeof(T).Name}") };
-    }
-    
-    public static unsafe (MEM_PROTECTION Protect, MEM_ALLOCATION_TYPE State) QueryAddress(nint address)
-    {
-        var arr = new MEMORY_BASIC_INFORMATION[1];
-        if (VirtualQuery(address, arr, sizeof(MEMORY_BASIC_INFORMATION)) == 0)
-            throw Kernel32.GetLastError().GetException()!;
+        if (VirtualQuery(address, out var mi, sizeof(MEMORY_BASIC_INFORMATION)) == 0)
+            throw GetLastError().GetException()!;
         
-        var mi = arr[0];
-        var state = (MEM_ALLOCATION_TYPE)mi.State;
-        var protect = (MEM_PROTECTION)mi.Protect;
+        var state = mi.State;
+        var protect = mi.Protect;
 
         return (protect, state);
     }
-    public static unsafe SuccessResult<MEMORY_BASIC_INFORMATION> QueryAddressInformation(nint address, HPROCESS proc)
+    public static Result<MEMORY_BASIC_INFORMATION> QueryAddressInformation(nint address, HPROCESS proc)
     {
         if (proc == default)
             proc = GetCurrentProcess();
 
-        var mi = new MEMORY_BASIC_INFORMATION();
-        if (VirtualQueryEx(proc, address, (nint)(&mi), sizeof(MEMORY_BASIC_INFORMATION)) == 0)
-            return SuccessResult<MEMORY_BASIC_INFORMATION>.Failed with
-            {
-                Exception = Kernel32.GetLastError().GetException()!
-            };
+        if (VirtualQueryEx(proc, address, out var mi, sizeof(MEMORY_BASIC_INFORMATION)) == 0)
+            return Result.FromLastError();
         
         return mi;
     }

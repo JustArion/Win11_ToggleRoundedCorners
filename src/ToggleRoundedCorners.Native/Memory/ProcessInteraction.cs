@@ -1,4 +1,6 @@
-﻿namespace Dawn.Libs.ToggleRoundedCorners.Native.Memory;
+﻿using Dawn.Common.Windows.Extensions;
+
+namespace Dawn.Libs.ToggleRoundedCorners.Native.Memory;
 
 using Serilog;
 
@@ -9,11 +11,11 @@ internal sealed unsafe class ProcessInteraction(uint processId, ILogger logger) 
 {
     internal readonly SafeHPROCESS _processHandle = OpenProcess(new(ProcessAccess.PROCESS_ALL_ACCESS), false, processId);
 
-    internal SuccessResult<T> RemoteDereference<T>(T* address) where T : unmanaged => Read<T>(address);
-    internal SuccessResult<T> RemoteDereference<T>(nint address) where T : unmanaged => Read<T>(address.ToPointer());
+    internal Result<T> RemoteDereference<T>(T* address) where T : unmanaged => Read<T>(address);
+    internal Result<T> RemoteDereference<T>(nint address) where T : unmanaged => Read<T>(address.ToPointer());
     
-    internal SuccessResult<T> Read<T>(nint address) where T : unmanaged => Read<T>(address.ToPointer());
-    internal SuccessResult<T> Read<T>(void* address) where T : unmanaged
+    internal Result<T> Read<T>(nint address) where T : unmanaged => Read<T>(address.ToPointer());
+    internal Result<T> Read<T>(void* address) where T : unmanaged
     {
         try
         {
@@ -22,11 +24,12 @@ internal sealed unsafe class ProcessInteraction(uint processId, ILogger logger) 
 
             try
             {
-                var result = AVGuard.AgainstReads<T>(address, _processHandle);
-                if (!result.Success)
-                    return SuccessResult<T>.Failed with { Exception = result.Exception };
+                var error = AVGuard.AgainstReads<T>(address, _processHandle);
+                if (error != null)
+                    return error;
 
-                ThrowLastErrorIfFalse(ReadProcessMemory(_processHandle, (nint)address, (nint)value, tSize, out _));
+                if (!ReadProcessMemory(_processHandle, (nint)address, (nint)value, tSize, out _))
+                    return Result.FromLastError();
 
                 var retVal = *(T*)value;
 
@@ -40,30 +43,30 @@ internal sealed unsafe class ProcessInteraction(uint processId, ILogger logger) 
         }
         catch (Exception e)
         {
-            return SuccessResult<T>.Failed with { Exception = e };
+            return e;
         }
     }
 
-    internal SuccessResult Write<T>(nint address, T value) where T : unmanaged => Write(address.ToPointer(), value);
-    internal SuccessResult Write<T>(void* address, T value) where T : unmanaged
+    internal Error? Write<T>(nint address, T value) where T : unmanaged => Write(address.ToPointer(), value);
+    internal Error? Write<T>(void* address, T value) where T : unmanaged
     {
         try
         {
-            var result = AVGuard.AgainstWrites<T>(address, _processHandle);
-            if (!result.Success)
-                return result;
+            var error = AVGuard.AgainstWrites<T>(address, _processHandle);
+            if (error != null)
+                return error;
 
             var tSize = sizeof(T);
             // var tSize = Marshal.SizeOf<T>();
             
             logger.Verbose("Writing (0x{Address:X})[{Bytes}] as {TypeName} ({Value})", (nint)address, tSize, typeof(T).Name, value);
-            ThrowLastErrorIfFalse(WriteProcessMemory(_processHandle, (nint)address,(nint)Unsafe.AsPointer(ref value), tSize, out _));
-
-            return true;
+            return WriteProcessMemory(_processHandle, (nint)address,(nint)Unsafe.AsPointer(ref value), tSize, out _) 
+                ? null 
+                : Result.FromLastError();
         }
         catch (Exception e)
         {
-            return SuccessResult.Failed with { Exception = e };
+            return e;
         }
 
     }

@@ -1,4 +1,7 @@
-﻿namespace Dawn.Libs.ToggleRoundedCorners.Native.Symbols;
+﻿using System.Diagnostics;
+
+#pragma warning disable CA2254
+namespace Dawn.Libs.ToggleRoundedCorners.Native.Symbols;
 
 using System.Diagnostics.CodeAnalysis;
 using Serilog;
@@ -6,27 +9,34 @@ using Serilog;
 /// <summary>
 /// Handles fetching symbols for the uDWM.dll from the Microsoft Symbol Server.
 /// </summary>
-internal sealed class DWMSymbolHandler(ILogger logger)
+[SuppressMessage("ReSharper", "TemplateIsNotCompileTimeConstantProblem")]
+internal sealed class DWMSymbolHandler
 {
+    private readonly ILogger _logger;
+
     [SuppressMessage("ReSharper", "SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault")]
-    internal async Task<SuccessResult<SYMBOL_INFO>> GetSymbol(string symbolName, ulong targetBaseAddress)
+    public DWMSymbolHandler(ILogger logger)
     {
+        _logger = logger;
+        
         var ourDbgHelp = FromAppDirectory("dbghelp.dll");
         
-        var proc = GetCurrentProcess();
-        var searchPath = SearchPath.CreateDefault();
-        
-        logger.Debug("Search path for uDWM.dll is {SearchPath}", searchPath);
-
         if (!ourDbgHelp.Exists)
         {
             var systemDbgHelp = FromSystem("dbghelp.dll");
             logger.Information("Copying dbghelp.dll from {Source} to {Destination}", systemDbgHelp.FullName, ourDbgHelp.FullName);
             systemDbgHelp.CopyTo(ourDbgHelp.FullName);
         }
+
+        // It's important that we load these from the same directory. It's undocumented behaviour but dbghelp.dll will fail to resolve remote symbols if symsrv.dll isn't in the same dir
+        if (!NativeLibrary.TryLoad(ourDbgHelp.FullName, out _))
+        {
+            logger.Warning("Could not load dbghelp.dll!");
+            return;
+        }
         
         var ourSymSrv = new FileInfo(Path.Combine(AppContext.BaseDirectory, "symsrv.dll"));
-
+        //
         if (!ourSymSrv.Exists)
         {
             var folder = RuntimeInformation.OSArchitecture switch
@@ -36,21 +46,60 @@ internal sealed class DWMSymbolHandler(ILogger logger)
                 Architecture.X86 => "x86",
                 _ => throw new PlatformNotSupportedException()
             };
-    
+        
             logger.Information("Copying symsrv.dll from {Source} to {Destination}", Path.Combine(AppContext.BaseDirectory, folder, "symsrv.dll"), ourSymSrv.FullName);
             File.Copy(Path.Combine(AppContext.BaseDirectory, folder, "symsrv.dll"), Path.Combine(AppContext.BaseDirectory, "symsrv.dll"));
-            
         }
+        // It's important that we load these from the same directory. It's undocumented behaviour but dbghelp.dll will fail to resolve remote symbols if symsrv.dll isn't in the same dir
+        if (!NativeLibrary.TryLoad(ourSymSrv.FullName, out _))
+        {
+            logger.Warning("Could not load symsrv.dll!");
+            return;
+        }
+        
         RemoveUnusedSymSrv();
+    }
+
+    internal async Task<Result<SYMBOL_INFO>> GetSymbol(string symbolName, ulong targetBaseAddress)
+    {
+
+        var cache = new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "cache"));
+        cache.Create();
+        var proc = GetCurrentProcess();
+        var searchPath = SearchPath.CreateDefault(cache);
+        
+        _logger.Debug("Search path for uDWM.dll is {SearchPath}", searchPath);
 
         
-        logger.Information("Initializing Microsoft Symbol Database");
+        _logger.Information("Initializing Microsoft Symbol Database");
         try
         {
+            SymSetOptions(SymGetOptions() | SYMOPT.SYMOPT_DEBUG);
+
             if (!SymInitialize(proc, searchPath, false))
-                return Failed<SYMBOL_INFO>();
+                return Failed<SYMBOL_INFO>(GetLastError().GetException()!);
+            
+            // PSYMBOL_REGISTERED_CALLBACK64 symCallback = (process, action, data, context) =>
+            // {
+            //     switch (action)
+            //     {
+            //         case CBA.CBA_EVENT:
+            //             // Symbol server messages (download start, HTTP errors, "not found") arrive here.
+            //             var ev = Marshal.PtrToStructure<IMAGEHLP_CBA_EVENT>((nint)data);
+            //             Console.WriteLine($"SymEvent sev={ev.severity}: {ev.desc}");
+            //             break;
+            //         case CBA.CBA_DEBUG_INFO:
+            //             // DbgHelp debug output, enabled by SYMOPT_DEBUG.
+            //             Console.WriteLine($"DbgHelp: {Marshal.PtrToStringUni((nint)data)}");
+            //             break;
+            //     }
+            //     return false;
+            // };
+            //
+            // if (!SymRegisterCallbackW64(proc, symCallback, 0))
+            //     throw GetLastError().GetException()!;
         
-            logger.Information("Loading Symbols from Cache or from Microsoft Servers...");
+            _logger.Information("Loading Symbols from Cache or from Microsoft Servers...");
             var dwmBinary = FromSystem("uDWM.dll");
             var baseAddress = 0UL;
             SYMBOL_INFO? symbol = null;
@@ -60,13 +109,28 @@ internal sealed class DWMSymbolHandler(ILogger logger)
             const uint DELAY_BETWEEN_RETRIES_SEC = 2;
             for (var i = 0; i < MAX_RETRIES; i++)
             {
-                baseAddress = SymLoadModuleEx(proc, HFILE.NULL, dwmBinary.FullName, BaseOfDll: targetBaseAddress);
+                baseAddress = SymLoadModuleEx(proc, HFILE.NULL, dwmBinary.FullName, "uDWM", BaseOfDll: targetBaseAddress);
+                if (baseAddress == 0)
+                {
+                    _logger.Error(GetLastError().GetException(), "Loading modules failed");
+                    continue;
+                }
                     
                 LogPDBInfo(proc, baseAddress);
+                
+                // using (var sym = new SafeIMAGEHLP_SYMBOL64())
+                // {
+                //     if (SymGetSymFromName64(proc, "uDWM!g_pdmInstance", sym)) 
+                //         _logger.Debug("{Name} - {Addr:X}", sym.Value.Name, sym.Value.Address);
+                //     else
+                //         _logger.Debug(GetLastError().GetException(), "Failed to get sym");
+                //
+                //     Process.GetCurrentProcess().Kill();
+                // }
 
                 if (!informedSymbolName)
                 {
-                    logger.Information("Looking through symbols for {SymbolName}", symbolName);
+                    _logger.Information("Looking through symbols for {SymbolName}", symbolName);
                     informedSymbolName = true;
                 }
                     
@@ -82,34 +146,32 @@ internal sealed class DWMSymbolHandler(ILogger logger)
                 {
                     SymUnloadModule64(proc, baseAddress);
                     baseAddress = 0;
+                    Log.Debug("Symbol fetch failed for {SymbolName}", symbolName);
                 }
 
                 if (baseAddress == 0)
                 {
-                    logger.Warning("({Retry}/{MaxRetries}) Failed to fetch symbols from Microsoft Servers, retrying...", i + 1, MAX_RETRIES);
+                    _logger.Warning("({Retry}/{MaxRetries}) Failed to fetch symbols from Microsoft Servers, retrying...", i + 1, MAX_RETRIES);
                     await Task.Delay(TimeSpan.FromSeconds(DELAY_BETWEEN_RETRIES_SEC));
                 }
                 else
                 {
-                    logger.Information(i != 0 ? "({Retry}/{MaxRetries}) Found it!" : "Found it!", i + 1, MAX_RETRIES);
+                    _logger.Information(i != 0 ? "({Retry}/{MaxRetries}) Found it!" : "Found it!", i + 1, MAX_RETRIES);
                     break;
                 }
             }
             
             if (baseAddress == 0)
-                return Failed<SYMBOL_INFO>(new TimeoutException("Failed to fetch Symbols from Microsoft Servers, ensure you're connected to the internet"));
+                return Failed<SYMBOL_INFO>(new TimeoutException("Ensure you're connected to the internet\nAlternatively: Microsoft hasn't published the latest Symbols for this Windows version"));
             
-            logger.Debug("Base Address: 0x{BaseAddress:X}", baseAddress);
+            _logger.Debug("Base Address: 0x{BaseAddress:X}", baseAddress);
             
             if (symbol is null)
                 return Failed<SYMBOL_INFO>();
 
             var offset = symbol.Value.Address - baseAddress;
 
-            if (offset == EXPECTED_OFFSET)
-                logger.Debug("Found symbol: {Symbol} at expected offset 0x{Offset:X}", symbol.Value.Name, offset);
-            else
-                logger.Warning("Found symbol: {Symbol} at unexpected offset 0x{Offset:X}. Expected at offset 0x{ExpectedOffset:X}", symbol.Value.Name, offset, EXPECTED_OFFSET);
+            _logger.Debug("Found symbol: {Symbol} at offset 0x{Offset:X}", symbol.Value.Name, offset);
             return symbol.Value;
         }
         finally
@@ -120,18 +182,18 @@ internal sealed class DWMSymbolHandler(ILogger logger)
 
     private void LogPDBInfo(HPROCESS proc, ulong baseAddress)
     {
-        var mod = new IMAGEHLP_MODULE64();
+        var mod = new IMAGEHLP_MODULE64 { SizeOfStruct = (uint)Marshal.SizeOf<IMAGEHLP_MODULE64>() };
         if (SymGetModuleInfoW64(proc, baseAddress, ref mod))
         {
-            logger.Debug("PDB Signature: {Signature}", mod.PdbSig70);
-            logger.Debug("PDB Size: {Size} bytes", mod.ImageSize);
+            _logger.Debug("SymType: {SymType}", mod.SymType);
+            _logger.Debug("Loaded PDB: {Pdb}", mod.LoadedPdbName);
+            _logger.Debug("PDB GUID: {Guid}", mod.PdbSig70);
+            _logger.Debug("PDB Age: {Age}", mod.PdbAge);
         }
+        else
+            _logger.Debug(GetLastError().GetException(), "Couldn't get PDB info on base address {Address:X}",
+                baseAddress);
     }
-
-    // Name             Offset       Section    Kind
-    // ----             -------      -------    ----
-    // g_pdmInstance    0x11BBD8    .data       Data           
-    private const uint EXPECTED_OFFSET = 0x11BBD8;
     
     private static void RemoveUnusedSymSrv()
     {
@@ -148,11 +210,11 @@ internal sealed class DWMSymbolHandler(ILogger logger)
             arm64.Delete(true);
     }
 
-    private SuccessResult<T> Failed<T>(Exception? ex = null)
+    private Result<T> Failed<T>(Exception? ex = null)
     {
-        ex ??= Kernel32.GetLastError().GetException()!;
-        logger.Error(ex, "");
-        return SuccessResult<T>.Failed with { Exception = ex };
+        ex ??= GetLastError().GetException()!;
+        _logger.Error(ex, "Failed to fetch Symbols from Microsoft Servers!\n-");
+        return ex;
     }
 
     private static FileInfo FromSystem(string fileName) => new(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), fileName));
