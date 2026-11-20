@@ -263,6 +263,13 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
                 logger.Warning("Task '{TaskName}' has no action associated", key);
                 return false;
             }
+            
+            var file = new FileInfo(Application.ExecutablePath);
+            if (execAction.Path != file.FullName)
+            {
+                logger.Verbose("Fixing file path discrepency!");
+                execAction.Path = file.FullName;
+            }
 
             var args = execAction.Arguments.Split(' ');
             var refreshValue = LaunchArgs.ExtractArgumentValue("--scheduler-refresh-time=", args);
