@@ -3,6 +3,7 @@ using Dawn.Common.Models;
 using Dawn.Common.Serilog;
 using Dawn.Common.Windows.Extensions;
 using Serilog.Core;
+using Vanara.PInvoke;
 
 namespace Dawn.Apps.ToggleRoundedCorners;
 
@@ -32,15 +33,15 @@ public partial class App
     public static LaunchArgs  Arguments { get; private set; }
     
     
-    private const string LOGGING_FORMAT = "{Level:u1} {Timestamp:yyyy-MM-dd HH:mm:ss.ffffff}   [{Source}] {Message:lj}{NewLine}{Exception}";
     private static ServiceProvider ConfigureServices(ServiceCollection collection)
     {
         collection.AddSerilog(config =>
         {
             var extendedLogging = Arguments.ExtendedLogging || Console.IsConsoleAttached;
+            var logDir = new FileInfo(Environment.ProcessPath!).Directory ?? new DirectoryInfo(Environment.CurrentDirectory);
 
             config.AddCommon(new CommonLoggingOptions(true, !Arguments.NoFileLogging, extendedLogging,
-                Arguments.CustomSeqUrl));
+                Arguments.CustomSeqUrl), logDir);
         });
 
         collection.AddSingleton<GUISink>();
@@ -82,7 +83,6 @@ public partial class App
         Log.Logger = Services.GetRequiredService<ILogger>();
         Log.Information("Initialized {ApplicationName} on version {ApplicationVersion} ({WindowsVersion})", Application.ProductName, Application.ProductVersion, Environment.OSVersion.Version);
         Log.Verbose("Process Arguments are {Arguments}", Arguments.RawArgs);
-        Log.Information("Logging to {Location}", Path.Combine(AppContext.BaseDirectory, $"{Application.ProductName}.log"));
         
         var taskScheduler = Services.GetRequiredService<ITaskSchedulerService>();
         var taskSchedulerKey = Application.ProductName!;
@@ -101,7 +101,8 @@ public partial class App
             {
                 if (Arguments.UseSharpCorners)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(3));
+                    await WaitForDwmInit();
+                    Log.Debug("DWM Ready!");
                     var error = await Services.GetRequiredService<ICornerService>()
                         .SetSharpCorners();
 
@@ -132,6 +133,32 @@ public partial class App
             
             base.OnStartup(e);
 
+        }
+    }
+
+    private async Task WaitForDwmInit()
+    {
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        try
+        {
+            Process? dwm;
+            while ((dwm = Process.GetProcessesByName("dwm").FirstOrDefault()) is not { } proc || proc.HasExited) 
+                await Task.Delay(10, cts.Token);
+
+            if ((DateTime.Now - dwm.StartTime).TotalSeconds > 5)
+                return; // We're the ones that's late, not DWM!
+
+            Log.Verbose("Waiting for DWM to initialize!");
+            if (WaitForInputIdle(dwm, (uint)TimeSpan.FromSeconds(5).TotalMilliseconds) is Kernel32.WAIT_STATUS.WAIT_OBJECT_0)
+                return;
+            
+            Log.Error("Waiting for DWM to initialize took too long! We're calling it quits!");
+            Shutdown(1);
+        }
+        catch (OperationCanceledException) when(cts.IsCancellationRequested)
+        {
+            Log.Error("Wait for DWM took too long! We're calling it quits!");
+            Shutdown(2);
         }
     }
 
