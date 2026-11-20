@@ -18,8 +18,7 @@
 - Windows 11
 
 ### Running Normal:
-- [.NET 9.0 Desktop Runtime](https://aka.ms/dotnet-core-applaunch?missing_runtime=true&arch=x64&rid=win-x64&os=win10&apphost_version=9.0.1&gui=true) (±59mb)
-- [ASP.NET Core 9.0 Runtime](https://aka.ms/dotnet-core-applaunch?framework=Microsoft.AspNetCore.App&framework_version=9.0.0&arch=x64&rid=win-x64&os=win10&gui=true) (±10mb)
+- [.NET 11.0 Desktop Runtime](https://aka.ms/dotnet-core-applaunch?missing_runtime=true&arch=x64&rid=win-x64&os=win10&apphost_version=11.0.0&gui=true) (±59mb)
 ### Running Portable:
 - None (Though has considerably bigger file size)
 
@@ -86,3 +85,5 @@ A comprehensive list of permissions the application needs / could need can be fo
 ### Thank Yous
 - Thanks to [Rckov](https://github.com/Rckov) for their window theme from [Xslt-Editor](https://github.com/Rckov/Xslt-Editor)
 - Thanks to [oberrich](https://github.com/oberrich/) for the initial idea and starting direction from [win11-toggle-rounded-corners](https://github.com/oberrich/win11-toggle-rounded-corners/)
+- Thanks to [valinet](https://github.com/valinet/Win11DisableRoundedCorners/) for some inspiration on other approaches which could have been taken
+- Thanks to [@jackylegs](https://discord.com/users/108906095560364032) for testing
