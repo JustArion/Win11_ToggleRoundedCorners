@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net9.0-windows</TargetFramework>
+        <TargetFramework>net11.0-windows</TargetFramework>
         <LangVersion>preview</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
@@ -16,6 +16,10 @@
         <PackageReference Include="Vanara.PInvoke.User32" Version="5.0.8" />
 
         <None Include="$(MicrosoftDebuggingPlatformSymSrvContent)**\*" CopyToOutputDirectory="PreserveNewest" Visible="False" Link="%(RecursiveDir)%(FileName)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\ToggleRoundedCorners.Native\ToggleRoundedCorners.Native.csproj" />
     </ItemGroup>
 
 </Project>

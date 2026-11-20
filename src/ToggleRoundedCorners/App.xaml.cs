@@ -1,4 +1,7 @@
 ﻿using System.Windows;
+using Dawn.Common.Models;
+using Dawn.Common.Serilog;
+using Dawn.Common.Windows.Extensions;
 using Serilog.Core;
 
 namespace Dawn.Apps.ToggleRoundedCorners;
@@ -13,10 +16,10 @@ using Microsoft.Win32.TaskScheduler;
 using Serilog.CustomEnrichers;
 using Services;
 using Services.Interfaces;
-using SoundOverlay.RW.Themes;
 using Tools;
 using ViewModels;
 using Application = System.Windows.Forms.Application;
+using Task = Task;
 
 /// <summary>
 /// Interaction logic for App.xaml
@@ -34,31 +37,10 @@ public partial class App
     {
         collection.AddSerilog(config =>
         {
-            config
-                .MinimumLevel.Is(LogEventLevel.Verbose)
-                .Enrich.With<ClassNameEnricher>()
-                .Enrich.WithProcessName()
-                .Enrich.FromLogContext()
-                .WriteTo.Console(
-                    theme: SerilogBlizzardTheme.GetTheme,
-                    outputTemplate: LOGGING_FORMAT,
-                    applyThemeToRedirectedOutput: true
-                );
-            
-            if (!Arguments.NoFileLogging)
-                config.WriteTo.File(Path.Combine(AppContext.BaseDirectory, $"{Application.ProductName}.log"),
-                    outputTemplate: LOGGING_FORMAT,
-                    restrictedToMinimumLevel: Arguments.ExtendedLogging
-                        ? LogEventLevel.Verbose
-                        : LogEventLevel.Information,
-                    retainedFileCountLimit: 1,
-                    rollOnFileSizeLimit: true,
-                    fileSizeLimitBytes: (long)Math.Pow(1024, 2) * 20, // 20mb
-                    flushToDiskInterval: TimeSpan.FromSeconds(1));
-            
-            #if RELEASE
-            config.WriteTo.Seq(Arguments.HasCustomSeqUrl ? Arguments.CustomSeqUrl : "http://localhost:9999");
-            #endif
+            var extendedLogging = Arguments.ExtendedLogging || Console.IsConsoleAttached;
+
+            config.AddCommon(new CommonLoggingOptions(true, !Arguments.NoFileLogging, extendedLogging,
+                Arguments.CustomSeqUrl));
         });
 
         collection.AddSingleton<GUISink>();
@@ -100,6 +82,7 @@ public partial class App
         Log.Logger = Services.GetRequiredService<ILogger>();
         Log.Information("Initialized {ApplicationName} on version {ApplicationVersion} ({WindowsVersion})", Application.ProductName, Application.ProductVersion, Environment.OSVersion.Version);
         Log.Verbose("Process Arguments are {Arguments}", Arguments.RawArgs);
+        Log.Information("Logging to {Location}", Path.Combine(AppContext.BaseDirectory, $"{Application.ProductName}.log"));
         
         var taskScheduler = Services.GetRequiredService<ITaskSchedulerService>();
         var taskSchedulerKey = Application.ProductName!;
@@ -118,7 +101,9 @@ public partial class App
             {
                 if (Arguments.UseSharpCorners)
                 {
-                    var error = await Services.GetRequiredService<ICornerService>().SetSharpCorners();
+                    await Task.Delay(TimeSpan.FromSeconds(3));
+                    var error = await Services.GetRequiredService<ICornerService>()
+                        .SetSharpCorners();
 
                     if (error != null) 
                         Log.Error(error.ToException(), "Could not set sharp corners from headless mode");
@@ -126,6 +111,8 @@ public partial class App
                         Log.Information("Set sharp corners from headless mode");
                 }
 
+                await Log.CloseAndFlushAsync();
+                await Task.Delay(TimeSpan.FromSeconds(3));
                 Shutdown(0);
             });
         }

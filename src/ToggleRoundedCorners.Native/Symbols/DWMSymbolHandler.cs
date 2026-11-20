@@ -24,9 +24,13 @@ internal sealed class DWMSymbolHandler
         if (!ourDbgHelp.Exists)
         {
             var systemDbgHelp = FromSystem("dbghelp.dll");
-            logger.Information("Copying dbghelp.dll from {Source} to {Destination}", systemDbgHelp.FullName, ourDbgHelp.FullName);
+            logger.Information("Copying over dbghelp.dll");
+            logger.Verbose("Copying dbghelp.dll from {Src} to {Destination}", systemDbgHelp.FullName, ourDbgHelp.FullName);
             systemDbgHelp.CopyTo(ourDbgHelp.FullName);
         }
+        else 
+            logger.Verbose("Our DBGHelp is @ {Path}", ourDbgHelp.FullName);
+        
 
         // It's important that we load these from the same directory. It's undocumented behaviour but dbghelp.dll will fail to resolve remote symbols if symsrv.dll isn't in the same dir
         if (!NativeLibrary.TryLoad(ourDbgHelp.FullName, out _))
@@ -47,7 +51,8 @@ internal sealed class DWMSymbolHandler
                 _ => throw new PlatformNotSupportedException()
             };
         
-            logger.Information("Copying symsrv.dll from {Source} to {Destination}", Path.Combine(AppContext.BaseDirectory, folder, "symsrv.dll"), ourSymSrv.FullName);
+            logger.Verbose("Copying symsrv.dll from {Src} to {Destination}", Path.Combine(AppContext.BaseDirectory, folder, "symsrv.dll"), ourSymSrv.FullName);
+            logger.Information("Copying over symsrv.dll");
             File.Copy(Path.Combine(AppContext.BaseDirectory, folder, "symsrv.dll"), Path.Combine(AppContext.BaseDirectory, "symsrv.dll"));
         }
         // It's important that we load these from the same directory. It's undocumented behaviour but dbghelp.dll will fail to resolve remote symbols if symsrv.dll isn't in the same dir

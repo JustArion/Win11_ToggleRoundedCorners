@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Dawn.Common.Windows.Extensions;
+using Dawn.Libs.ToggleRoundedCorners.Native.PatternScanning;
 
 namespace Dawn.Libs.ToggleRoundedCorners.Native;
 
@@ -24,8 +25,8 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
 
     private ProcessInteraction? _processInteraction;
     private ProcessModule? _processModule;
-    private SYMBOL_INFO _symbol;
-    public static DirectoryInfo CachePath => new (Path.Combine(AppContext.BaseDirectory, "sym"));
+    // private SYMBOL_INFO _symbol;
+    public static DirectoryInfo CachePath { get; } = new (Path.Combine(AppContext.BaseDirectory, "sym"));
 
 
     public async Task<Error?> Initialize()
@@ -41,6 +42,18 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
             
             _processInteraction?.Dispose();
             _processInteraction = new ProcessInteraction(pid, logger);
+            
+            using var scanner = new DesktopManagerScanner(managedHandle, _processModule, logger);
+            if (scanner.GetDesktopManager() is nint ptr)
+            {
+                logger.Verbose("Found CDesktopManager::s_pDesktopManagerInstance from pattern scanning @ {Address:X} ({RelativeAddress:X})", ptr, ptr - _processModule.BaseAddress);
+                logger.Information("Found critical DWM Structure! Ready to toggle rounded corners! (0x{RelativeAddress:X})", ptr - _processModule.BaseAddress);
+                unsafe
+                {
+                    _cDesktopManager = (CDesktopManager**)ptr;
+                }
+                return null;
+            }
 
             var symbolHandler = new DWMSymbolHandler(logger);
             // symbolHandler.AlertProgress += InformProgress;
@@ -61,7 +74,11 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
                         : new Error(primary.Message, new AggregateException(primary.ToException(), fallback.ToException()));
             }
 
-            _symbol = result.Unwrap();
+            unsafe
+            {
+                _cDesktopManager = (CDesktopManager**)result.Unwrap().Address;
+            }
+            // _symbol = result.Unwrap();
             return null;
         }
         catch (Exception e)
@@ -108,8 +125,8 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
     public Error? ResetToDefault() => SetRoundedCorners();
     public Error? ToggleRoundedCorners() => SetRoundedCorners(RoundedCorners.Toggle);
     public Error? SetSharpCorners() => SetRoundedCorners(RoundedCorners.Sharp);
-    
-    
+
+    private CDesktopManager** _cDesktopManager;
     // So, there's a global field called g_pdmInstance holding a reference to the CDesktopManager
     // Firstly we get the pointer to the field
     // Then we read from the field where the actual reference lives
@@ -117,11 +134,15 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
     // Imagine it as a CDesktopManager**
     private unsafe Error? SetRoundedCorners(RoundedCorners roundedCorners = RoundedCorners.Default)
     {
-        if (_processInteraction == null || _processModule == null)
+        if (_processInteraction == null || _processModule == null || _cDesktopManager == null)
             return "DWM Interaction is not initialized properly";
+
+        var prevComposition = DwmApi.DwmIsCompositionEnabled(out var compositionEnabled);
+        compositionEnabled ^= prevComposition.Succeeded;
         
         // Gets CDesktopManager*
-        var pCDesktopManager = (CDesktopManager**)_symbol.Address;
+        // var pCDesktopManager = (CDesktopManager**)_symbol.Address;
+        var pCDesktopManager = _cDesktopManager;
 
         var cDesktopManagerResult = _processInteraction!.Read<nint>(pCDesktopManager);
         if (cDesktopManagerResult.Value is not nint globalFieldValue)
@@ -160,13 +181,13 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
         else
             logger.Error((Exception)derefResult.Value!, "Failed to read CDesktopManager after write");
 
-        OnCornersChange(roundedCorners, enabled);
+        OnCornersChange(roundedCorners, enabled, compositionEnabled);
 
         
         return error;
     }
 
-    private void OnCornersChange(RoundedCorners roundedCorners, bool currentlyRounded)
+    private void OnCornersChange(RoundedCorners roundedCorners, bool currentlyRounded, bool hadCompositionEnabled)
     {
         switch (roundedCorners)
         {
@@ -191,7 +212,7 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
         
         try
         {
-            RedrawWindows(currentlyRounded);
+            RedrawWindows(currentlyRounded, hadCompositionEnabled);
         }
         catch (Exception e)
         {
@@ -215,7 +236,7 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
     /// This only updates the currently visible windows of their intended state, using the DWMAPI is not a permanent solution, we can't base the entire app off this
     /// since this app would need to run constantly then, it might have issues with apps that have a higher level of permission (like games with Anti-Cheats)
     /// </summary>
-    private void RedrawWindows(bool currentlyRounded)
+    private void RedrawWindows(bool currentlyRounded, bool hadCompositionEnabled)
     {
         var hwnds = GetAllWindows();
 
@@ -262,6 +283,8 @@ public sealed class DWMInteraction(ILogger logger) : IDisposable
                 logger.Error(e, "Exception while redrawing window ({Title})", title);
             }
         }
+
+        DwmApi.DwmEnableComposition(hadCompositionEnabled);
     }
 
 

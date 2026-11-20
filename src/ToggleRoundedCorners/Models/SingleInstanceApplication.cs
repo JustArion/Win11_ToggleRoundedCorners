@@ -1,4 +1,6 @@
-﻿namespace Dawn.Apps.ToggleRoundedCorners.Models;
+﻿using Dawn.Common.Windows.Extensions;
+
+namespace Dawn.Apps.ToggleRoundedCorners.Models;
 
 using System.IO;
 using System.Text;
@@ -7,7 +9,7 @@ using Vanara.PInvoke;
 
 public class SingleInstanceApplication : Application
 {
-    private static void AttachToParent() => Kernel32.AttachConsole(Kernel32.ATTACH_PARENT_PROCESS);
+    private static void AttachToParent() => Console.Attach();
 
     protected SingleInstanceApplication()
     {

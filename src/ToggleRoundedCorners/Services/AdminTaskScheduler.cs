@@ -86,6 +86,10 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
 
     public void RunOnStartup(string key, params string[] args)
     {
+        args = args
+            .Concat(App.Arguments.RawArgs)
+            .Distinct()
+            .ToArray();
         try
         {
             if (Contains(key))
@@ -111,7 +115,7 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
             FixSchedulerBugIfNecessary(td);
 
             SaveTaskDefinition(key, td);
-            logger.Information("Task '{TaskName}' is created", key);
+            logger.Information("Task '{TaskName}' is created with args: {Args}", key, args);
         }
         catch (Exception e)
         {
@@ -145,7 +149,7 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
             FixSchedulerBugIfNecessary(td);
 
             SaveTaskDefinition(key, td);
-            logger.Information("Task '{TaskName}' is created", key);
+            logger.Information("Task '{TaskName}' is created with args: {Args}", key, args);
             return true;
         }
         catch (Exception e)
@@ -155,9 +159,9 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
         }
     }
 
-    private void CloseAfter(TimeSpan fromMinutes, TaskDefinition taskDefinition) => taskDefinition.Settings.ExecutionTimeLimit = fromMinutes;
+    private static void CloseAfter(TimeSpan fromMinutes, TaskDefinition taskDefinition) => taskDefinition.Settings.ExecutionTimeLimit = fromMinutes;
 
-    private void OnStartup(TaskDefinition taskDefinition)
+    private static void OnStartup(TaskDefinition taskDefinition)
     {
         taskDefinition.Triggers.AddRange(
         [
@@ -168,6 +172,9 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
             
             // "The Desktop Window Manager has registered the session port." (DWM Started / Restarted, usually happens if DWM exits for any reason)
             new EventTrigger("Application", "Desktop Window Manager", 9027),
+            
+            // The Desktop Window Manager process has exited. 
+            new EventTrigger("Application", "Dwminit", 0)
         ]);
     }
 
@@ -188,7 +195,7 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
         taskDefinition.Settings.DisallowStartIfOnBatteries = false;
     }
 
-    private void FixSchedulerBugIfNecessary(TaskDefinition td)
+    private static void FixSchedulerBugIfNecessary(TaskDefinition td)
     {
         if (td.Principal.UserId == Environment.UserName)
             td.Principal.UserId = td.Principal.Account;

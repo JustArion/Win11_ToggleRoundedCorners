@@ -20,26 +20,19 @@ internal sealed unsafe class ProcessInteraction(uint processId, ILogger logger) 
         try
         {
             var tSize = Marshal.SizeOf<T>();
-            var value = NativeMemory.Alloc((nuint)tSize);
+            var value = default(T);
 
-            try
-            {
-                var error = AVGuard.AgainstReads<T>(address, _processHandle);
-                if (error != null)
-                    return error;
+            var error = AVGuard.AgainstReads<T>(address, _processHandle);
+            if (error != null)
+                return error;
+            
+            var ok = ReadProcessMemory(_processHandle, (nint)address, (nint)Unsafe.AsPointer(ref value), sizeof(T), out var bytesRead);
 
-                if (!ReadProcessMemory(_processHandle, (nint)address, (nint)value, tSize, out _))
-                    return Result.FromLastError();
+            if (!ok || bytesRead != sizeof(T))
+                return Result.FromLastError();
 
-                var retVal = *(T*)value;
-
-                logger.Verbose("Reading (0x{Address:X})[{Bytes}] as {TypeName} ({ReturnValue})", (nint)address, tSize, typeof(T).Name, retVal);
-                return retVal;
-            }
-            finally
-            {
-                NativeMemory.Free(value);
-            }
+            logger.Verbose("Reading (0x{Address:X})[{Bytes}] as {TypeName} ({ReturnValue})", (nint)address, tSize, typeof(T).Name, value);
+            return value;
         }
         catch (Exception e)
         {
