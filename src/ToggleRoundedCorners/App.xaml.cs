@@ -82,7 +82,7 @@ public partial class App
         
         Log.Logger = Services.GetRequiredService<ILogger>();
         Log.Information("Initialized {ApplicationName} on version {ApplicationVersion} ({WindowsVersion})", Application.ProductName, Application.ProductVersion, Environment.OSVersion.Version);
-        Log.Verbose("Process Arguments are {Arguments}", Arguments.RawArgs);
+        Log.Information("Process Arguments are {Arguments}", Arguments.RawArgs);
         
         var taskScheduler = Services.GetRequiredService<ITaskSchedulerService>();
         var taskSchedulerKey = Application.ProductName!;
@@ -113,6 +113,7 @@ public partial class App
                 }
 
                 await Log.CloseAndFlushAsync();
+                Log.Verbose("Finished headless invocation, closing in 3 sec...");
                 await Task.Delay(TimeSpan.FromSeconds(3));
                 Shutdown(0);
             });

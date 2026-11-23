@@ -173,7 +173,7 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
             // "The Desktop Window Manager has registered the session port." (DWM Started / Restarted, usually happens if DWM exits for any reason)
             new EventTrigger("Application", "Desktop Window Manager", 9027),
             
-            // The Desktop Window Manager process has exited. 
+            // "The Desktop Window Manager process has exited." 
             new EventTrigger("Application", "Dwminit", 0)
         ]);
     }
@@ -267,7 +267,7 @@ internal sealed class AdminTaskScheduler(ILogger logger, TaskService scheduler) 
             var file = new FileInfo(Application.ExecutablePath);
             if (execAction.Path != file.FullName)
             {
-                logger.Verbose("Fixing file path discrepency!");
+                logger.Information("Found a path discrepency in the {Key} Task. Fixing file path discrepency!", key);
                 execAction.Path = file.FullName;
             }
 
